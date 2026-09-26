@@ -1,0 +1,74 @@
+{
+ "r6:retry_policy": {
+  "cand": "r6",
+  "unit": "retry_policy",
+  "kind": "local",
+  "C": "/net/scratch/ymeng3/bos_alfworld/patches_p3/P3_ours_r6_strategic_memory_fallbac.py",
+  "OFF": "/net/scratch/ymeng3/bos_alfworld/patches_p3/P3C_r6_loo_retry_.py",
+  "Ctag": "P3C_r6"
+ },
+ "r6:memory_update": {
+  "cand": "r6",
+  "unit": "memory_update",
+  "kind": "global",
+  "C": "/net/scratch/ymeng3/bos_alfworld/patches_p3/P3_ours_r6_strategic_memory_fallbac.py",
+  "OFF": "/net/scratch/ymeng3/bos_alfworld/patches_p3/P3C_r6_loo_memory.py",
+  "Ctag": "P3C_r6"
+ },
+ "r6:choose_fallback": {
+  "cand": "r6",
+  "unit": "choose_fallback",
+  "kind": "local",
+  "C": "/net/scratch/ymeng3/bos_alfworld/patches_p3/P3_ours_r6_strategic_memory_fallbac.py",
+  "OFF": "/net/scratch/ymeng3/bos_alfworld/patches_p3/P3C_r6_loo_choose.py",
+  "Ctag": "P3C_r6"
+ },
+ "n5:retry_policy": {
+  "cand": "n5",
+  "unit": "retry_policy",
+  "kind": "local",
+  "C": "/net/scratch/ymeng3/bos_alfworld/patches_p3/P3_naive_r5_context_focus_with_feedb.py",
+  "OFF": "/net/scratch/ymeng3/bos_alfworld/patches_p3/P3C_n5_loo_retry_.py",
+  "Ctag": "P3C_n5"
+ },
+ "n5:format_prompt": {
+  "cand": "n5",
+  "unit": "format_prompt",
+  "kind": "global",
+  "C": "/net/scratch/ymeng3/bos_alfworld/patches_p3/P3_naive_r5_context_focus_with_feedb.py",
+  "OFF": "/net/scratch/ymeng3/bos_alfworld/patches_p3/P3C_n5_loo_format.py",
+  "Ctag": "P3C_n5"
+ },
+ "n5:HISTORY_LENGTH": {
+  "cand": "n5",
+  "unit": "HISTORY_LENGTH",
+  "kind": "global",
+  "C": "/net/scratch/ymeng3/bos_alfworld/patches_p3/P3_naive_r5_context_focus_with_feedb.py",
+  "OFF": "/net/scratch/ymeng3/bos_alfworld/patches_p3/P3C_n5_loo_HISTOR.py",
+  "Ctag": "P3C_n5"
+ },
+ "r2:retry_policy": {
+  "cand": "r2",
+  "unit": "retry_policy",
+  "kind": "local",
+  "C": "/net/scratch/ymeng3/bos_alfworld/patches_p3/P3_ours_r2_history_retry_memory.py",
+  "OFF": "/net/scratch/ymeng3/bos_alfworld/patches_p3/P3C_r2_loo_retry_.py",
+  "Ctag": "P3C_r2"
+ },
+ "r2:memory_update": {
+  "cand": "r2",
+  "unit": "memory_update",
+  "kind": "global",
+  "C": "/net/scratch/ymeng3/bos_alfworld/patches_p3/P3_ours_r2_history_retry_memory.py",
+  "OFF": "/net/scratch/ymeng3/bos_alfworld/patches_p3/P3C_r2_loo_memory.py",
+  "Ctag": "P3C_r2"
+ },
+ "r2:HISTORY_LENGTH": {
+  "cand": "r2",
+  "unit": "HISTORY_LENGTH",
+  "kind": "global",
+  "C": "/net/scratch/ymeng3/bos_alfworld/patches_p3/P3_ours_r2_history_retry_memory.py",
+  "OFF": "/net/scratch/ymeng3/bos_alfworld/patches_p3/P3C_r2_loo_HISTOR.py",
+  "Ctag": "P3C_r2"
+ }
+}

@@ -1,0 +1,23 @@
+{
+ "r6": {
+  "C_wins": 22,
+  "parent_wins": 25,
+  "paired_d": -3,
+  "n": 48,
+  "decompose": false
+ },
+ "n5": {
+  "C_wins": 24,
+  "parent_wins": 26,
+  "paired_d": -2,
+  "n": 48,
+  "decompose": false
+ },
+ "r2": {
+  "C_wins": 23,
+  "parent_wins": 20,
+  "paired_d": 3,
+  "n": 48,
+  "decompose": true
+ }
+}

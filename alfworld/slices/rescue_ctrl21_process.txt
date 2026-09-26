@@ -1,0 +1,12 @@
+/net/scratch/ymeng3/llm_agent_opd/data/alfworld/json_2.1.1/train/pick_heat_then_place_in_recep-Apple-None-Fridge-12/trial_T20190909_151650_734356/game.tw-pddl
+/net/scratch/ymeng3/llm_agent_opd/data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-Plate-None-Microwave-7/trial_T20190907_170142_415879/game.tw-pddl
+/net/scratch/ymeng3/llm_agent_opd/data/alfworld/json_2.1.1/train/pick_heat_then_place_in_recep-Tomato-None-Fridge-30/trial_T20190907_235531_894602/game.tw-pddl
+/net/scratch/ymeng3/llm_agent_opd/data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-Pot-None-Cabinet-1/trial_T20190908_184335_961034/game.tw-pddl
+/net/scratch/ymeng3/llm_agent_opd/data/alfworld/json_2.1.1/train/pick_heat_then_place_in_recep-Mug-None-CoffeeMachine-24/trial_T20190907_144720_997810/game.tw-pddl
+/net/scratch/ymeng3/llm_agent_opd/data/alfworld/json_2.1.1/train/pick_heat_then_place_in_recep-Plate-None-CounterTop-13/trial_T20190909_101225_957550/game.tw-pddl
+/net/scratch/ymeng3/llm_agent_opd/data/alfworld/json_2.1.1/train/pick_heat_then_place_in_recep-Tomato-None-DiningTable-17/trial_T20190909_042742_043093/game.tw-pddl
+/net/scratch/ymeng3/llm_agent_opd/data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-WineBottle-None-DiningTable-16/trial_T20190906_202041_847876/game.tw-pddl
+/net/scratch/ymeng3/llm_agent_opd/data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-Lettuce-None-GarbageCan-17/trial_T20190907_114546_602779/game.tw-pddl
+/net/scratch/ymeng3/llm_agent_opd/data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-Knife-None-Drawer-21/trial_T20190908_141841_920948/game.tw-pddl
+/net/scratch/ymeng3/llm_agent_opd/data/alfworld/json_2.1.1/train/pick_cool_then_place_in_recep-Mug-None-CoffeeMachine-19/trial_T20190907_162039_724874/game.tw-pddl
+/net/scratch/ymeng3/llm_agent_opd/data/alfworld/json_2.1.1/train/pick_clean_then_place_in_recep-SoapBar-None-GarbageCan-408/trial_T20190908_045045_294517/game.tw-pddl

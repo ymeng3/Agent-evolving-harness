@@ -1,0 +1,48 @@
+HISTORY_LENGTH = 10
+TEMPERATURE = 0.5
+
+import re, random, collections
+
+def retry_policy(attempt: int, response: str, action: str, admissible: list[str], state: dict) -> dict | None:
+    extra_instruction = "Your last action wasn't valid. Focus on selecting one of the admissible actions listed."
+    if attempt == 1:
+        return {"extra_instruction": extra_instruction, "temperature": 0.3}
+    elif attempt == 2:
+        return {"extra_instruction": extra_instruction, "temperature": 0.2}
+    return None
+
+def memory_update(state, observation, action, next_observation):
+    # Extract the action from the response and normalize it
+    m = re.search(r"<action>(.*?)</action>", action, re.S | re.I)
+    act = (m.group(1) if m else action).strip().lower()
+    
+    # Maintain history of actions
+    state.setdefault("hist", []).append(act)
+    
+    # Track actions that lead to no change
+    if "nothing happens" in next_observation.lower():
+        state.setdefault("noop", collections.Counter())[act] += 1
+
+def parse_action(response, admissible, state):
+    # Extract the most recent action from the model's response
+    m = re.findall(r"<action>(.*?)</action>", response, re.S | re.I)
+    act = m[-1].strip().lower() if m else response.strip().lower()[-30:]
+    
+    # Track history and identify no-op actions
+    h = state.get("hist", [])
+    noop = state.get("noop", {})
+    
+    # If the action is admissible, check for repeated or no-op actions
+    if act in admissible and (noop.get(act, 0) >= 2 or (len(h) >= 2 and h[-1] == h[-2] == act)):
+        state["loop_breaks"] = state.get("loop_breaks", 0) + 1
+        # Prefer alternative go-to actions, avoiding recent and no-op actions
+        alt = [a for a in admissible if a not in noop and a != act and a != "look" and a != "inventory" and a not in h[-6:]]
+        if alt:
+            return random.choice([a for a in alt if a.startswith("go to")] or alt)
+    return act
+
+def choose_fallback(admissible, state):
+    # Prefer unexplored go-to actions when fallback is needed
+    h = state.get("hist", [])
+    alt = [a for a in admissible if a.startswith("go to") and a not in h]
+    return random.choice(alt) if alt else "look"

@@ -1,0 +1,2 @@
+r2:memory_update global /net/scratch/ymeng3/bos_alfworld/patches_p3/P3_ours_r2_history_retry_memory.py /net/scratch/ymeng3/bos_alfworld/patches_p3/P3C_r2_loo_memory.py P3C_r2 memory_update
+r2:HISTORY_LENGTH global /net/scratch/ymeng3/bos_alfworld/patches_p3/P3_ours_r2_history_retry_memory.py /net/scratch/ymeng3/bos_alfworld/patches_p3/P3C_r2_loo_HISTOR.py P3C_r2 HISTORY_LENGTH

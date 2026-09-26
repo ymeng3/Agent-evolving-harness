@@ -1,0 +1,6 @@
+P3C_r6 /net/scratch/ymeng3/bos_alfworld/patches_p3/P3_ours_r6_strategic_memory_fallbac.py 1 48
+P3P_r6 /net/scratch/ymeng3/bos_alfworld/patches_loop/CL_O_r5_c4_S.py 1 48
+P3C_n5 /net/scratch/ymeng3/bos_alfworld/patches_p3/P3_naive_r5_context_focus_with_feedb.py 1 48
+P3P_n5 /net/scratch/ymeng3/bos_alfworld/patches_loop/CL_N_r4_c1.py 1 48
+P3C_r2 /net/scratch/ymeng3/bos_alfworld/patches_p3/P3_ours_r2_history_retry_memory.py 1 48
+P3P_r2 /net/scratch/ymeng3/bos_alfworld/patches_loop/CL_N_r1_c1_S.py 1 48

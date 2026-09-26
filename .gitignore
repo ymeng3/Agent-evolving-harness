@@ -1,0 +1,15 @@
+results/
+slurm/
+probeL/
+replay/
+fd/
+rubric/
+pilot/
+__pycache__/
+*.pyc
+guard_state.json
+closedloop_state*.json
+*.log
+*.out
+*.err
+banks/

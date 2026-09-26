@@ -1,0 +1,16 @@
+HISTORY_LENGTH = 10
+
+def retry_policy(attempt: int, response: str, action: str, admissible: list[str], state: dict) -> dict | None:
+    extra_instruction = "Your last action wasn't valid. Focus on selecting one of the admissible actions listed."
+    if attempt == 1:
+        return {"extra_instruction": extra_instruction}
+    elif attempt == 2:
+        return {"extra_instruction": extra_instruction}
+    return None
+
+def choose_fallback(admissible: list[str], state: dict) -> str:
+    # Prioritize "look" action if available as a default exploration move
+    if "look" in admissible:
+        return "look"
+    # If no "look" action, choose the first admissible action to ensure forward progress
+    return admissible[0]

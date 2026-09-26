@@ -1,0 +1,4 @@
+P3W_r6_memory_late_off /net/scratch/ymeng3/bos_alfworld/patches_p3/P3W_r6_memory_late_off.py 1 32
+P3W_r6_memory_early_off /net/scratch/ymeng3/bos_alfworld/patches_p3/P3W_r6_memory_early_off.py 1 32
+P3W_n5_format_late_off /net/scratch/ymeng3/bos_alfworld/patches_p3/P3W_n5_format_late_off.py 1 32
+P3W_n5_format_early_off /net/scratch/ymeng3/bos_alfworld/patches_p3/P3W_n5_format_early_off.py 1 32
