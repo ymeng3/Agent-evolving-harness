@@ -7,6 +7,6 @@ Q=${CCQ_DIR:-/root/autodl-tmp/cc/queue}; mkdir -p $Q/{pending,running,done,faile
 [ $# -ge 2 ] || { echo "usage: qsub.sh TAG command..."; exit 2; }
 TAG=$1; shift
 case "$TAG" in CC_*) ;; *) echo "TAG must start with CC_ (isolation from other users' tags)"; exit 2;; esac
-ID=$(date +%Y%m%d-%H%M%S)_$TAG
+ID=$(date +%Y%m%d-%H%M%S-%N)_$TAG   # %N keeps FIFO order for jobs queued in the same second
 printf '%s\n' "$*" > $Q/pending/$ID.job
 echo "queued $ID"
