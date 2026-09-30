@@ -5,6 +5,8 @@
 # them and risking BOS_TIMEOUT api_errors. Controls:  touch $Q/pause (stop taking jobs)  |  touch $Q/force (skip the wait once)
 Q=${CCQ_DIR:-/root/autodl-tmp/cc/queue}; mkdir -p $Q/{pending,running,done,failed,logs}
 exec 9> $Q/runner.lock; flock -n 9 || { echo "runner already running"; exit 1; }
+# we hold the lock, so anything left in running/ belongs to a runner that was killed: put it back at the head of the queue
+for f in $Q/running/*.job; do [ -e "$f" ] && { mv "$f" $Q/pending/; echo "$(date '+%F %T') requeued $(basename $f .job) after runner restart" >> $Q/history.tsv; }; done
 HERE=$(cd "$(dirname "$0")" && pwd); MAX_LOAD=${CCQ_MAX_LOAD:-8}   # ~ where the A800 saturates; with BOS_TIMEOUT=900 sharing only slows jobs down
 load() { curl -s -m 5 -H "Authorization: Bearer $(cat /root/autodl-tmp/vllm_api_key)" http://127.0.0.1:6006/metrics \
          | awk '/^vllm:num_requests_(running|waiting)\{/ {s += $2; n++} END {if (n) print int(s); else print "down"}'; }
