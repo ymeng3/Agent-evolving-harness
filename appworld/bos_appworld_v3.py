@@ -34,8 +34,11 @@ def extract_code(resp):
         m = re.search(r"```(?:python)?[ \t]*\n(.*)$", resp, re.S)
         if m: return m.group(1).strip()
     return ""
-_PLAY = None
-def _call(i): return _PLAY(i)
+_PLAY = None; _TASKS = None
+def _call(i):
+    try: return _PLAY(i)
+    except Exception as e:   # 2026-10-01: one task's exception used to abort the whole ProcessPool pass (43 min lost); record it as a crashed failure instead
+        return i, {"bb": [0, 0, 0, 0], "task": _TASKS[i], "won": False, "G": None, "harm_fail": 0, "steps": 0, "traj": [], "crashed": f"{type(e).__name__}: {str(e)[:200]}"}
 import ast as _ast
 ALLOWED_POINTS = ("setup", "pre_call", "post_parse", "post_exec", "pre_complete")
 def load_v3(path):
@@ -158,7 +161,9 @@ def run_eval(patch_path, seed, tag, n_games=None, workers=4):
                             try: c2 = f(code, state); code = c2 if isinstance(c2, str) and c2.strip() else code
                             except Exception as e: si.setdefault("edit_err", []).append(f"{eid}:pre_complete:{str(e)[:40]}")
                 si["code_final"] = code[:300]
-                out = world.execute(code); err = out.startswith("Execution failed")
+                try: out = world.execute(code)
+                except Exception as e: out = f"Execution failed. {type(e).__name__}: {str(e)[:300]}"; si["env_exc"] = 1   # 2026-10-01: e.g. an API called with `...` as an argument raises inside AppWorld's save_logs
+                err = out.startswith("Execution failed")
                 try:
                     if mu: mu(state, hist[-1][1] if hist else "", code, out)
                 except Exception: pass
@@ -172,14 +177,14 @@ def run_eval(patch_path, seed, tag, n_games=None, workers=4):
                 if world.task_completed(): break
             ev = world.evaluate().to_dict(); success = bool(ev.get("success")); gp = sum(1 for x in ev["passes"] if x.get("label") == "no_op_fail"); gf = sum(1 for x in ev["failures"] if x.get("label") == "no_op_fail"); sf = sum(1 for x in ev["failures"] if x.get("label") == "no_op_pass")
         return i, {"bb": [bb.calls, bb.errors, bb.tok[0], bb.tok[1]], "task": tid, "won": success, "G": (gp / (gp + gf) if gp + gf else None), "harm_fail": sf, "steps": steps, "traj": traj}
-    global _PLAY; _PLAY = play; results = [None] * len(tasks)
+    global _PLAY, _TASKS; _PLAY = play; _TASKS = tasks; results = [None] * len(tasks)
     with ProcessPoolExecutor(max_workers=workers, mp_context=mp.get_context('fork')) as ex:
         for i, r in ex.map(_call, range(len(tasks))): results[i] = r
     class _B: pass
     bb = _B(); bb.calls = sum(r['bb'][0] for r in results); bb.errors = sum(r['bb'][1] for r in results); bb.tok = [sum(r['bb'][2] for r in results), sum(r['bb'][3] for r in results)]
     G = [r["G"] for r in results if r["G"] is not None]
     res = {"tag": tag, "patch": patch_path, "seed": seed, "model": A.MODEL, "history_length": H, "temperature": T, "parse_unclosed": PARSE_UNCLOSED, "n_games": len(tasks), "success_rate": sum(r["won"] for r in results) / len(tasks), "mean_G": sum(G) / max(len(G), 1),
-           "won": [r["won"] for r in results], "G": [r["G"] for r in results], "harm_fail": [r["harm_fail"] for r in results], "games": [r["task"] for r in results], "steps": [r["steps"] for r in results], "traj": [r["traj"] for r in results],
+           "won": [r["won"] for r in results], "G": [r["G"] for r in results], "harm_fail": [r["harm_fail"] for r in results], "games": [r["task"] for r in results], "steps": [r["steps"] for r in results], "crashed": [r.get("crashed") for r in results], "traj": [r["traj"] for r in results],
            "calls": bb.calls, "api_errors": bb.errors, "tokens_in": bb.tok[0], "tokens_out": bb.tok[1], "finished": time.strftime("%Y-%m-%d %H:%M")}
     os.makedirs(f"{OUT}/results", exist_ok=True); json.dump(res, open(f"{OUT}/results/{tag}_seed{seed}.json", "w"))
     print(f"{tag} seed{seed}: success {res['success_rate']:.3f} mean_G {res['mean_G']:.2f} calls {bb.calls} api_errors {bb.errors}", flush=True)
