@@ -26,9 +26,14 @@ def demo_messages(sup):
         else: buf.append(line)
     if role: msgs.append({"role": role, "content": "\n".join(buf).strip()})
     return msgs
+PARSE_UNCLOSED = os.environ.get("BOS_PARSE_UNCLOSED", "0") == "1"   # 2026-09-29: 10-30% of 27B replies open a code fence and never close it; default parser then returns "" and the step silently runs the default code
 def extract_code(resp):
     m = re.search(r"```python\s*(.*?)```", resp, re.S) or re.search(r"```\s*(.*?)```", resp, re.S)
-    return m.group(1).strip() if m else ""
+    if m: return m.group(1).strip()
+    if PARSE_UNCLOSED:   # no closed pair -> exactly one opening fence; take everything after it
+        m = re.search(r"```(?:python)?[ \t]*\n(.*)$", resp, re.S)
+        if m: return m.group(1).strip()
+    return ""
 _PLAY = None
 def _call(i): return _PLAY(i)
 import ast as _ast
@@ -124,7 +129,7 @@ def run_eval(patch_path, seed, tag, n_games=None, workers=4):
                     bb.errors += 1; si["api_error"] = str(last)[:80]
                 try: code = pa(resp, [], state) if pa else extract_code(resp)
                 except Exception: code = extract_code(resp)
-                si["parse_chg"] = int(bool(pa) and code != extract_code(resp)); si["a0"] = extract_code(resp)[:80]; si["a0_adm"] = int(bool(extract_code(resp)))
+                si["parse_chg"] = int(bool(pa) and code != extract_code(resp)); si["a0"] = extract_code(resp)[:80]; si["a0_adm"] = int(bool(extract_code(resp))); si["unclosed"] = int(resp.count("```") % 2 == 1)
                 attempt = 0
                 while rp and not code and attempt < 2:
                     attempt += 1
@@ -173,7 +178,7 @@ def run_eval(patch_path, seed, tag, n_games=None, workers=4):
     class _B: pass
     bb = _B(); bb.calls = sum(r['bb'][0] for r in results); bb.errors = sum(r['bb'][1] for r in results); bb.tok = [sum(r['bb'][2] for r in results), sum(r['bb'][3] for r in results)]
     G = [r["G"] for r in results if r["G"] is not None]
-    res = {"tag": tag, "patch": patch_path, "seed": seed, "model": A.MODEL, "history_length": H, "temperature": T, "n_games": len(tasks), "success_rate": sum(r["won"] for r in results) / len(tasks), "mean_G": sum(G) / max(len(G), 1),
+    res = {"tag": tag, "patch": patch_path, "seed": seed, "model": A.MODEL, "history_length": H, "temperature": T, "parse_unclosed": PARSE_UNCLOSED, "n_games": len(tasks), "success_rate": sum(r["won"] for r in results) / len(tasks), "mean_G": sum(G) / max(len(G), 1),
            "won": [r["won"] for r in results], "G": [r["G"] for r in results], "harm_fail": [r["harm_fail"] for r in results], "games": [r["task"] for r in results], "steps": [r["steps"] for r in results], "traj": [r["traj"] for r in results],
            "calls": bb.calls, "api_errors": bb.errors, "tokens_in": bb.tok[0], "tokens_out": bb.tok[1], "finished": time.strftime("%Y-%m-%d %H:%M")}
     os.makedirs(f"{OUT}/results", exist_ok=True); json.dump(res, open(f"{OUT}/results/{tag}_seed{seed}.json", "w"))
