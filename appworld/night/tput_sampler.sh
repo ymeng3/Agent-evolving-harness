@@ -1,0 +1,3 @@
+#!/bin/bash
+# samples aggregate prompt/generation throughput and Running/Waiting from both vLLM logs every 10 min (ladder-test evidence)
+while true; do for h in "50445 nma1 m1" "37456 bjb1 m2"; do set -- $h; l=$(ssh -i ~/.ssh/autodl_key -o ConnectTimeout=15 -o StrictHostKeyChecking=no -p $1 root@connect.$2.seetacloud.com 'grep "throughput" /root/autodl-tmp/vllm27.log | tail -6 | sed "s/.*Avg prompt throughput: //; s/ tokens\/s, Avg generation throughput:/ gen/; s/ tokens\/s, Running:/ run/; s/ reqs, Waiting:/ wait/; s/ reqs, GPU KV cache usage:/ kv/; s/, Prefix.*//" | tr "\n" "|"' 2>/dev/null); echo "$(date '+%H:%M') $3 workers=$(squeue -h -u ymeng3 -o %j | grep -c "aw-$3\|aw-local")jobs $l" >> /net/scratch/ymeng3/bos_appworld/night/tput.log; done; sleep 600; done

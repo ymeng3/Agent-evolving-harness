@@ -1,7 +1,11 @@
-"""LINE 3: AppWorld ReAct-code harness with the SAME 5-hook patch API as bos_alfworld (format_prompt, parse_action, retry_policy,
-memory_update, choose_fallback; constants HISTORY_LENGTH, TEMPERATURE). Local backbone via BOS_BASE_URL. Per-step log: code,
-output, exec_error, goal tests passed/failed (world.evaluate() every step = mid-episode verifier facts), component flags.
-Usage: eval --patch P|none --seed S --tag T [--n-games N] [--workers W]"""
+"""LINE 3 v3 (2026-09-28): two-layer harness. Capability {Planning, Memory, ToolUse, Recovery, Verification} x Implementation
+{Prompt, State, Code, ControlFlow}. A patch is a Python module with EDITS = [ {id, capability, impl, trigger, depends}, ... ] and
+functions <id>_setup() -> sandbox code str | <id>_pre_call(prompt, state) -> prompt | <id>_post_parse(code, state) -> code |
+<id>_post_exec(code, out, state) -> None | <id>_pre_complete(code, state) -> code (only when code calls complete_task).
+Control points: setup once before step 0; pre_call before every LLM call; post_parse after code extraction; post_exec after
+execution; pre_complete before executing a cell that calls complete_task. BOS_EDITS_OFF="e2,e4" disables edits (dependency-closed).
+Legacy 5-hook patches (format_prompt etc.) still work through the same points."""
+
 import os, sys, json, re, time, argparse, threading
 from concurrent.futures import ProcessPoolExecutor
 import multiprocessing as mp
@@ -27,9 +31,45 @@ def extract_code(resp):
     return m.group(1).strip() if m else ""
 _PLAY = None
 def _call(i): return _PLAY(i)
+import ast as _ast
+ALLOWED_POINTS = ("setup", "pre_call", "post_parse", "post_exec", "pre_complete")
+def load_v3(path):
+    """validate + load a two-layer patch; returns (edits_meta, funcs_by_point) with OFF edits (dependency-closed) removed."""
+    src = open(path).read(); tree = _ast.parse(src)
+    for node in _ast.walk(tree):
+        if isinstance(node, (_ast.Import, _ast.ImportFrom)):
+            names = [a.name.split(".")[0] for a in node.names] if isinstance(node, _ast.Import) else [(node.module or "").split(".")[0]]
+            assert all(n in A.ALLOWED_IMPORTS for n in names), f"import not allowed: {names}"
+        if isinstance(node, _ast.Name) and node.id in A.FORBIDDEN: raise AssertionError(f"forbidden name {node.id}")
+    ns = {}; exec(compile(src, path, "exec"), ns)
+    edits = ns.get("EDITS") or []
+    ids = [e["id"] for e in edits]; assert len(ids) == len(set(ids)), "duplicate edit ids"
+    for fn in [n for n in tree.body if isinstance(n, _ast.FunctionDef)]:
+        if fn.name in A.HOOKS: continue
+        pid, _, pt = fn.name.rpartition("_"); pid2, _, pt2 = fn.name.partition("_")
+        assert (pt in ALLOWED_POINTS and pid in ids) or fn.name.split("_", 1)[1] in ("pre_call", "post_parse", "post_exec", "pre_complete", "setup") and fn.name.split("_", 1)[0] in ids, f"unknown function {fn.name}"
+    off = set(x for x in os.environ.get("BOS_EDITS_OFF", "").split(",") if x); changed = True
+    while changed:
+        changed = False
+        for e in edits:
+            if e["id"] not in off and any(d in off for d in e.get("depends", [])): off.add(e["id"]); changed = True
+    active = [e for e in edits if e["id"] not in off]
+    funcs = {p: [] for p in ALLOWED_POINTS}
+    for e in active:
+        for p in ALLOWED_POINTS:
+            f = ns.get(f"{e['id']}_{p}")
+            if f: funcs[p].append((e["id"], f))
+    legacy = {k: ns[k] for k in A.HOOKS if k in ns}; consts = {k: ns[k] for k in ("HISTORY_LENGTH", "TEMPERATURE", "SETUP_CODE") if k in ns}
+    return active, off, funcs, legacy, consts
 def run_eval(patch_path, seed, tag, n_games=None, workers=4):
     from appworld import AppWorld
-    hooks = A.load_patch(patch_path) if patch_path not in (None, "none") else {}
+    hooks = {}; V3 = None
+    if patch_path not in (None, "none"):
+        src = open(patch_path).read()
+        if "EDITS" in src:
+            active, off, funcs, legacy, consts = load_v3(patch_path); V3 = funcs; hooks = {**legacy, **consts}
+            print(f"v3 patch: active edits {[e['id'] for e in active]} off {sorted(off)}", flush=True)
+        else: hooks = A.load_patch(patch_path)
     fp, pa, rp, mu, cf = (hooks.get(k) for k in ("format_prompt", "parse_action", "retry_policy", "memory_update", "choose_fallback"))
     H = int(hooks.get("HISTORY_LENGTH", 20)); T = float(hooks.get("TEMPERATURE", 0.4)); tasks = TASKS[: (n_games or 10**9)]
     def play(i):
@@ -40,8 +80,9 @@ def run_eval(patch_path, seed, tag, n_games=None, workers=4):
             # the demo ends with the example task; replace the last USER turn's task line with the real task
             task_msg = f"My name is: {world.task.supervisor.first_name} {world.task.supervisor.last_name}. My personal email is {world.task.supervisor.email} and phone number is {world.task.supervisor.phone_number}.\nTask: {world.task.instruction}"
             hist = []   # list of (assistant_text, user_output)
-            if hooks.get("SETUP_CODE"):   # PHASE-1 infrastructure (2026-09-27): a patch may define sandbox helpers executed once before step 0 (no LLM, not in history)
-                try: state["_setup_out"] = world.execute(str(hooks["SETUP_CODE"]))[:300]
+            setup_codes = ([str(hooks["SETUP_CODE"])] if hooks.get("SETUP_CODE") else []) + ([f() for _, f in V3["setup"]] if V3 else [])
+            for sc in setup_codes:
+                try: state["_setup_out"] = world.execute(sc)[:300]
                 except Exception as e: state["_setup_out"] = f"setup error {e}"[:300]
             for step in range(MAX_STEPS):
                 A.GUARD.check()
@@ -61,6 +102,10 @@ def run_eval(patch_path, seed, tag, n_games=None, workers=4):
                 try:
                     if fp: prompt = fp(prompt, state)
                 except Exception: pass
+                if V3:
+                    for eid, f in V3["pre_call"]:
+                        try: prompt = f(prompt, state)
+                        except Exception as e: si.setdefault("edit_err", []).append(f"{eid}:pre_call:{str(e)[:40]}")
                 si["pc"] = int(prompt != prompt0); msgs[-1] = {"role": "user", "content": prompt}
                 resp = ""
                 r = None; last = None
@@ -99,10 +144,23 @@ def run_eval(patch_path, seed, tag, n_games=None, workers=4):
                     try: code = cf([], state) or ""; si["fb"] = int(bool(code))
                     except Exception: pass
                 if not code: code = "print(apis.api_docs.show_app_descriptions())"; si["default_code"] = 1
+                if V3:
+                    for eid, f in V3["post_parse"]:
+                        try: c2 = f(code, state); code = c2 if isinstance(c2, str) and c2.strip() else code
+                        except Exception as e: si.setdefault("edit_err", []).append(f"{eid}:post_parse:{str(e)[:40]}")
+                    if "complete_task" in code:
+                        for eid, f in V3["pre_complete"]:
+                            try: c2 = f(code, state); code = c2 if isinstance(c2, str) and c2.strip() else code
+                            except Exception as e: si.setdefault("edit_err", []).append(f"{eid}:pre_complete:{str(e)[:40]}")
+                si["code_final"] = code[:300]
                 out = world.execute(code); err = out.startswith("Execution failed")
                 try:
                     if mu: mu(state, hist[-1][1] if hist else "", code, out)
                 except Exception: pass
+                if V3:
+                    for eid, f in V3["post_exec"]:
+                        try: f(code, out, state)
+                        except Exception as e: si.setdefault("edit_err", []).append(f"{eid}:post_exec:{str(e)[:40]}")
                 ev = world.evaluate().to_dict(); gp = sum(1 for x in ev["passes"] if x.get("label") == "no_op_fail"); gf = sum(1 for x in ev["failures"] if x.get("label") == "no_op_fail"); sf = sum(1 for x in ev["failures"] if x.get("label") == "no_op_pass")
                 traj.append({"step": step, "code": code, "resp": resp[-600:], "out": out[:200], "exec_error": int(err), "gp": gp, "gf": gf, "harm_fail": sf, **si})
                 hist.append((resp if resp else "```python\n" + code + "\n```", "Output:\n```\n" + out[:3000] + "\n```")); steps += 1

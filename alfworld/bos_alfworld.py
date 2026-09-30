@@ -9,10 +9,16 @@ import argparse, ast, json, os, re, sys, time, hashlib, urllib.request, threadin
 from concurrent.futures import ThreadPoolExecutor, as_completed
 SEED_ROOT = "/home/ymeng3/llm_agent_opd/external/SEED"; sys.path.insert(0, SEED_ROOT); sys.path.insert(0, f"{SEED_ROOT}/scripts/sft/_common")
 sys.path.insert(0, "/net/scratch/ymeng3/metaharness_runs/level4")
-OUT = "/net/scratch/ymeng3/bos_alfworld"; MANIFEST = os.environ.get("BOS_MANIFEST", f"{OUT}/manifests/unseen_shard_000.txt")  # closed-loop: env override, default unchanged
+OUT = os.environ.get("BOS_ALF_OUT", "/net/scratch/ymeng3/bos_alfworld"); MANIFEST = os.environ.get("BOS_MANIFEST", f"{OUT}/manifests/unseen_shard_000.txt")  # closed-loop: env override, default unchanged
 MODEL = os.environ.get("BOS_MODEL", "qwen/qwen3-30b-a3b-instruct-2507"); PRICE_IN, PRICE_OUT = float(os.environ.get("BOS_PRICE_IN", "0.130e-6")), float(os.environ.get("BOS_PRICE_OUT", "0.520e-6"))  # PINNED provider Alibaba rates (corrected 2026-09-09; 0.048/0.193 was StreamLake, the cheapest row)
 KEY = os.environ.get("OPENROUTER_API_KEY") or (open(os.path.expanduser("~/.config/openrouter/key")).read().strip() if os.path.exists(os.path.expanduser("~/.config/openrouter/key")) else "")
-from finalB_guard import SpendGuard
+try: from finalB_guard import SpendGuard
+except ImportError:   # standalone (outside the UChicago cluster): a minimal spend guard with the same interface
+    class SpendGuard:
+        def __init__(self, name, cap, path): self.name, self.cap, self.path = name, cap, path
+        def baseline(self): pass
+        def check(self): pass
+        def spent(self): return 0.0
 GUARD = SpendGuard("bos_alfworld", float(os.environ.get("BOS_GUARD_USD", "30.0")), f"{OUT}/guard_state.json")  # raised 30->36 (user-authorized 2026-09-08; see registry)
 HOOKS = ("format_prompt", "parse_action", "retry_policy", "memory_update", "choose_fallback")
 HARNESS_API_DOC = """HARNESS HOOK API (ALFWorld text agent). A patch is a Python module that may define any subset of:

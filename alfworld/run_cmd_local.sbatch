@@ -15,15 +15,16 @@ export RAY_TMPDIR="$TMPDIR"
 PORT=$((20000 + SLURM_JOB_ID % 20000)); APIKEY=$(cat /net/scratch/ymeng3/local_llm/vllm_api_key)
 sleep $((RANDOM % 20))   # de-synchronise simultaneous array tasks (AutoDL sshd MaxStartups)
 TUN=""; ok=0
-for attempt in 1 2 3 4 5 6; do
+for attempt in $(seq 1 20); do
   ssh -i $HOME/.ssh/autodl_key -o StrictHostKeyChecking=no -o ConnectTimeout=20 -o ServerAliveInterval=30 -o ExitOnForwardFailure=yes -N -L 127.0.0.1:$PORT:127.0.0.1:6006 -p $(cut -d" " -f2 ${BOS_HOST_FILE:-/net/scratch/ymeng3/local_llm/host}) root@$(cut -d" " -f1 ${BOS_HOST_FILE:-/net/scratch/ymeng3/local_llm/host}) &
   TUN=$!
-  for i in $(seq 1 15); do curl -s -m 5 -H "Authorization: Bearer $APIKEY" http://127.0.0.1:$PORT/v1/models 2>/dev/null | grep -q qwen3-30b-a3b && { ok=1; break; }; sleep 2; done
+  for i in $(seq 1 15); do curl -s -m 5 -H "Authorization: Bearer $APIKEY" http://127.0.0.1:$PORT/v1/models 2>/dev/null | grep -q "${BOS_MODEL:-qwen}" && { ok=1; break; }; sleep 2; done
   [ $ok -eq 1 ] && break
   echo "tunnel attempt $attempt failed; retrying"; kill $TUN 2>/dev/null; wait $TUN 2>/dev/null; sleep $((10 + RANDOM % 20))
 done
 trap 'kill $TUN 2>/dev/null; rm -rf "$TMPDIR"' EXIT
-[ $ok -eq 1 ] || { echo "TUNNEL/ENDPOINT NOT READY after 6 attempts"; exit 3; }
+[ $ok -eq 1 ] || { echo "TUNNEL/ENDPOINT NOT READY after 20 attempts"; exit 3; }
+
 export BOS_TOP_P=${BOS_TOP_P:-} BOS_TOP_K=${BOS_TOP_K:-}
 export BOS_BASE_URL=http://127.0.0.1:$PORT/v1 BOS_API_KEY=$(cat /net/scratch/ymeng3/local_llm/vllm_api_key) BOS_PRICE_IN=0 BOS_PRICE_OUT=0
 export BOS_MANIFEST=${BOS_MANIFEST:-/net/scratch/ymeng3/bos_alfworld/slices/validation_train96.txt}

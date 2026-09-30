@@ -15,7 +15,7 @@ def propose_ops(context, K, prefix, outdir, sys_extra="", log_path=None, tempera
         try: resp = A.gpt4o([{"role": "system", "content": sysmsg}, {"role": "user", "content": user}], temperature=temperature, max_tokens=1800)
         except Exception as e: log.append({"attempt": attempts, "err": str(e)[:200]}); time.sleep(5); continue
         m = re.search(r"```(?:python)?\s*(.*?)```", resp, re.S); nm = re.search(r"NAME:\s*([A-Za-z0-9_\-]+)", resp); tg = re.search(r"TARGET:\s*([^\n]+)", resp)
-        name = (nm.group(1)[:40] if nm else f"unnamed{attempts}"); src = m.group(1).strip() if m else None
+        name = (nm.group(1)[:40] if nm else f"unnamed{attempts}"); src = ("\n".join(l for l in m.group(1).strip().splitlines() if not re.match(r"\s*(TARGET|NAME|COMPOSITION_HYPOTHESIS)\s*:", l))) if m else None
         ok, why = (A.validate_patch(src) if src else (False, "no code"))
         if ok:
             try: ns = {}; exec(compile(src, name, "exec"), ns)

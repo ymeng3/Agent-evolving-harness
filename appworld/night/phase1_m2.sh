@@ -1,0 +1,8 @@
+#!/bin/bash
+cd /net/scratch/ymeng3/bos_appworld; L=night/phase1.log; HF=/net/scratch/ymeng3/local_llm/host2
+sub(){ while [ $(squeue -h -u ymeng3 -o %j | grep -c "^aw-m2$") -ge 2 ]; do sleep 30; done; sbatch --parsable --job-name=aw-m2 --array=$1-$1 --time=03:59:00 --export=ALL,JOBS_FILE=$PWD/$2,BOS_TASKS=$3,BOS_AW_STEPS=30,BOS_MODEL=qwen/qwen3.8-27b,BOS_THINK_OFF=1,BOS_TIMEOUT=900,BOS_HOST_FILE=$HF,BOS_GUARD_USD=202,BOS_TOP_P=1.0,BOS_TOP_K=-1,BOS_WORKERS=16 run_aw_local.sbatch; }
+printf "VAL_F0 none 1\nVAL_F0 none 2\nP1_E1_val patches_phase1/E1_pagination.py 1\nP1_E2_val patches_phase1/E2_crossapp_memory.py 1\nP1_E3_val patches_phase1/E3_subgoal_tracker.py 1\nP1_E123_val patches_phase1/E123_all.py 1\n" > night/jobs_p1_val.txt
+printf "P1_E1_disc patches_phase1/E1_pagination.py 1\nP1_E2_disc patches_phase1/E2_crossapp_memory.py 1\nP1_E3_disc patches_phase1/E3_subgoal_tracker.py 1\nP1_E123_disc patches_phase1/E123_all.py 1\n" > night/jobs_p1_disc1.txt
+for i in 0 1 2 3; do tag=$(sed -n "$((i+1))p" night/jobs_p1_disc1.txt | awk '{print $1}'); [ -e results/${tag}_seed1.json ] && continue; J=$(sub $i night/jobs_p1_disc1.txt $PWD/tasks_challenge50.json); echo "$(date) m2 $tag s1 -> $J" >> $L; sleep 5; done
+for i in 0 1 2 3 4 5; do line=$(sed -n "$((i+1))p" night/jobs_p1_val.txt); tag=$(echo $line | awk '{print $1}'); sd=$(echo $line | awk '{print $3}'); [ -e results/${tag}_seed$sd.json ] && continue; J=$(sub $i night/jobs_p1_val.txt $PWD/tasks_challenge_val50.json); echo "$(date) m2 $tag s$sd -> $J" >> $L; sleep 5; done
+while squeue -h -u ymeng3 -o %j | grep -q "^aw-m2$"; do sleep 60; done; echo "$(date) m2 phase1 passes done" >> $L
