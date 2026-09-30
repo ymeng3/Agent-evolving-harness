@@ -73,7 +73,7 @@ def default_parse(response):
 class Backbone:
     def __init__(self, temperature):
         from openai import OpenAI
-        self.client = OpenAI(api_key=os.environ.get("BOS_API_KEY", KEY), base_url=os.environ.get("BOS_BASE_URL", "https://openrouter.ai/api/v1"), timeout=60, max_retries=0)  # backbone only; gpt4o() proposer unaffected
+        self.client = OpenAI(api_key=os.environ.get("BOS_API_KEY", KEY), base_url=os.environ.get("BOS_BASE_URL", "https://openrouter.ai/api/v1"), timeout=float(os.environ.get("BOS_TIMEOUT", "60")), max_retries=0)  # backbone only; gpt4o() proposer unaffected. 2026-09-29: was hard-coded 60, so BOS_TIMEOUT only applied after a first failure
         self.extra = ({"provider": {"order": [os.environ["BOS_PROVIDER"]], "allow_fallbacks": os.environ.get("BOS_FALLBACKS", "1") == "1"}} if os.environ.get("BOS_PROVIDER") else None)
         self.sampling = {}  # explicit decoding protocol; default = send nothing (unchanged behaviour)
         if os.environ.get("BOS_TOP_P"): self.sampling["top_p"] = float(os.environ["BOS_TOP_P"])
