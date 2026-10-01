@@ -80,6 +80,8 @@ class Backbone:
         if os.environ.get("BOS_TOP_K"): self.extra = {**(self.extra or {}), "top_k": int(os.environ["BOS_TOP_K"])}
         if os.environ.get("BOS_REASONING_OFF") == "1":   # regime tests on thinking-capable models: harness protocol is NON-thinking
             self.extra = {**(self.extra or {}), "reasoning": {"enabled": False}}
+        if os.environ.get("BOS_THINK_OFF") == "1":   # 2026-10-01: set by every local-vLLM launcher but never read, so Qwen3.8 ran with thinking ON (step-0 completion tokens: median 389 vs 32 with this flag)
+            self.extra = {**(self.extra or {}), "chat_template_kwargs": {"enable_thinking": False}}
         self.err_types = {}
         self.temperature = temperature; self.lock = threading.Lock(); self.tok = [0, 0]; self.calls = 0; self.errors = 0
     def call(self, prompt, temperature=None):
