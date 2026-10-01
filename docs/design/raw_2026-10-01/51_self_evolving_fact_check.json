@@ -1,0 +1,239 @@
+{
+ "checks": [
+  {
+   "claim": "DGM (2505.22954): OpenAI o1 reads the evaluation logs and proposes the next change ('better reasoning capabilities than other FMs'); Claude 3.5 Sonnet (New) implements it; the executor is Claude 3.5 Sonnet (New) on SWE-bench and o3-mini on Polyglot (systems-table row)",
+   "status": "confirmed",
+   "correction": "Correct. Appendix (ICLR 2026 camera-ready): 'the current implementation of DGM leverages a separate FM to diagnose improvement opportunities... We chose to use OpenAI's o1 model... as we found it had better reasoning capabilities than other FMs.' The code sets diagnose_model = 'o1-2024-12-17'. Self-modification runs on Claude 3.5 Sonnet (New); benchmark evaluation runs on Claude 3.5 Sonnet (New) for SWE-bench and o3-mini for Polyglot. So in DGM the diagnoser is not the same model as the executor.",
+   "source": "https://arxiv.org/pdf/2505.22954 (Appendix, self-improve section); https://raw.githubusercontent.com/jennyzzt/dgm/main/self_improve_step.py"
+  },
+  {
+   "claim": "DGM row in the distillation-confound table: proposer/modifier is Claude 3.5 Sonnet, 'Same model on SWE-bench [verified]'",
+   "status": "wrong",
+   "correction": "Incomplete in a way that changes the answer. Claude 3.5 Sonnet only implements the change. A separate, different FM (o1-2024-12-17) does the diagnosis and writes the problem statement. The proposer is therefore not the same model as the SWE-bench executor. This row contradicts the systems-table row, which is the correct one.",
+   "source": "https://arxiv.org/pdf/2505.22954 (Appendix); https://raw.githubusercontent.com/jennyzzt/dgm/main/self_improve_step.py"
+  },
+  {
+   "claim": "DGM's diagnosis prompt includes the private test patch, i.e. privileged information",
+   "status": "confirmed",
+   "correction": "Correct. The SWE-bench diagnosis prompt has a '# Private Test Patch' section ('SWE-bench's official private tests to detect whether the issue is solved'). The paper says: 'While the private test patch is included in the diagnosis prompt... we have not observed any problematic logic... indicative of memorization.'",
+   "source": "https://arxiv.org/pdf/2505.22954 (Appendix); https://raw.githubusercontent.com/jennyzzt/dgm/main/prompts/self_improvement_prompt.py"
+  },
+  {
+   "claim": "DGM uses 'frozen pretrained FMs', is 'inherently limited by the capabilities of the underlying FM', its 'DGM w/o self-improve' gains 'taper off quickly', and future work is 'rewriting its own training script to update the FM itself'",
+   "status": "confirmed",
+   "correction": "All four quotes appear verbatim. DGM is published at ICLR 2026.",
+   "source": "https://arxiv.org/html/2505.22954"
+  },
+  {
+   "claim": "HGM (2510.21614): GPT-5 for expansion/self-modification and GPT-5-mini for evaluation on SWE-Verified; Qwen3-Coder-480B for expansion and Qwen3-Coder-30B-A3B for evaluation on Polyglot; baselines use the same backbones; it calls itself self-improving",
+   "status": "confirmed",
+   "correction": "Correct: 'GPT-5 for expansion and GPT-5-mini for evaluation for SWE-Verified' and 'Qwen3-Coder-480B-A35B-Instruct for expansion and Qwen3-Coder-30B-A3B-Instruct for evaluation'. In both cases a stronger proposer edits for a weaker executor.",
+   "source": "https://arxiv.org/html/2510.21614"
+  },
+  {
+   "claim": "Hyperagents / DGM-H (2603.19461): Claude 4.5 Sonnet does self-modification; the task models are GPT-4o (paper review), o4-mini (IMO grading) and Claude 4.5 Sonnet (robotics)",
+   "status": "confirmed",
+   "correction": "Correct (appendix table). The pack omits one row: Polyglot uses Claude 3.5 Sonnet (New) for self-modification and o3-mini for evaluation.",
+   "source": "https://arxiv.org/pdf/2603.19461 (Appendix D, FM table)"
+  },
+  {
+   "claim": "Gödel Agent (2410.04444): gpt-4o-2024-05-13 does self-modification, gpt-3.5-turbo-0125 executes; it claims recursive self-improvement 'without relying on predefined routines or fixed optimization algorithms'",
+   "status": "confirmed",
+   "correction": "Correct: 'For the Gödel Agent, we utilize the gpt-4o-2024-05-13 model'. Optimized policies and baselines are evaluated with gpt-3.5-turbo-0125. So the proposer is stronger than the executor, yet the paper still uses the label 'recursive self-improvement'.",
+   "source": "https://arxiv.org/html/2410.04444"
+  },
+  {
+   "claim": "ADAS (2408.08435): 'the meta agent uses GPT-4, while the discovered agents... are evaluated using GPT-3.5'; making the meta agent self-referential is future work; no meta-agent-strength ablation",
+   "status": "confirmed",
+   "correction": "Correct; the full sentence ends 'to reduce compute cost'. Future work: 'ADAS can become self-referential where the meta agent can be improved through ADAS as well.' Transfer to Claude-Haiku, GPT-4 and Claude-Sonnet is shown. I found no ablation of meta-agent strength.",
+   "source": "https://arxiv.org/html/2408.08435"
+  },
+  {
+   "claim": "SICA (2504.15228): 'eliminates the distinction between meta-agent and target agent'; says ADAS is not self-improving; uses Sonnet 3.5 v2 plus an o3-mini reasoning sub-agent; gains marginal where the base model is already strong; no weight updates",
+   "status": "confirmed",
+   "correction": "Correct. The exact ADAS critique is 'not self-improving (as the meta-agent improves the target agent, not itself)', which is slightly different from 'two separate agents'. The paper says improvement on tasks where 'models alone (e.g. o3-mini-high) already perform well was marginal.' Note that SICA mixes two models (Sonnet 3.5 plus an o3-mini sub-agent), so 'same model' really means 'same system'.",
+   "source": "https://arxiv.org/pdf/2504.15228"
+  },
+  {
+   "claim": "AlphaEvolve (2506.13131): Gemini 2.0 Flash + Pro ensemble; ablations include 'No evolution' and 'Small base LLM only'; it 'performs increasingly better as the underlying LLM improves'",
+   "status": "confirmed",
+   "correction": "All three are verbatim in the paper. There is no LLM executor: the evolved artifact is a program scored by an automatic evaluator.",
+   "source": "https://arxiv.org/pdf/2506.13131"
+  },
+  {
+   "claim": "GEPA (2507.19457): reflection uses the task model itself ('all modules... relying on the same model'), with Qwen3-8B or GPT-4.1-mini; prompts optimized by Qwen3-8B transfer to GPT-4.1-mini at +9.00%",
+   "status": "confirmed",
+   "correction": "Mostly correct, with one nuance. The quoted 'same model' sentence (App. E.2) is about the modules of the compound AI system, not explicitly the reflection LM. Same-model reflection is supported by 'prompts were optimized using the smaller Qwen3-8B model but evaluated on GPT-4.1-Mini... +9.00% aggregate improvement.'",
+   "source": "https://arxiv.org/pdf/2507.19457"
+  },
+  {
+   "claim": "Meta-Harness (2603.28052): the proposer is 'Claude Code with Opus-4.6'; it calls itself an 'outer-loop system that searches over harness code', not self-improving; it concedes it works 'with one particularly strong coding-agent proposer'; its Opus-4.6 harness ranks #2 among Opus-4.6 agents on TerminalBench-2",
+   "status": "confirmed",
+   "correction": "All correct. Exact text: 'our experiments demonstrate that harness search can work with one particularly strong coding-agent proposer (Claude Code); a broader study of how the effect varies across proposer agents remains for future work.' Targets: GPT-OSS-120B (text classification), GPT-OSS-20B (math search), and Opus 4.6 and Haiku 4.5 (TB2). The three pack sections list these targets differently, but all three are consistent with the paper. Authors: Lee, Nair, Zhang, Lee, Khattab, Finn.",
+   "source": "https://arxiv.org/pdf/2603.28052"
+  },
+  {
+   "claim": "Self-Harness (2606.09498, includes AppWorld): improves its own harness 'without relying on human engineers or stronger external agents'; 'the same... model is invoked in a proposer role'; 'Unlike recent approaches that use stronger external agents to improve the harnesses of weaker ones... seeks to internalize this improvement loop'; models MiniMax M2.5, Qwen3.5-35B-A3B, GLM-5",
+   "status": "confirmed",
+   "correction": "Correct. The exact wording is 'the same model is invoked in a proposer role' (the pack inserts the word 'fixed'). The paper runs no empirical comparison against a stronger external proposer.",
+   "source": "https://arxiv.org/abs/2606.09498 ; https://arxiv.org/html/2606.09498"
+  },
+  {
+   "claim": "ACE (2510.04618): 'we use the same LLM for the Generator, Reflector, and Curator (non-thinking mode of DeepSeek-V3.1), preventing knowledge transfer from a stronger Reflector or Curator to a weaker Generator'; Table 16 on FiNER: base 70.7, GPT-OSS-120B reflector +5.9, same model +7.6, GPT-5.1 +7.8",
+   "status": "confirmed",
+   "correction": "The quote and all Table 16 numbers are verbatim (76.6 / 78.3 / 78.5 against base 70.7). One small correction: the distillation-confound section says '+17.1% average'. The paper says 'by up to 17.1%... from execution feedback alone, without needing ground-truth labels.' Also, Table 16 is on FiNER, not AppWorld.",
+   "source": "https://arxiv.org/pdf/2510.04618 (Sec 4.1, Appendix Table 16)"
+  },
+  {
+   "claim": "TT-SI vs TT-D (Acikgoz et al., 2510.07841): self-improvement means the same model generates the data; when a stronger model generates it, it is called Test-Time Distillation",
+   "status": "confirmed",
+   "correction": "Correct (abstract): TT-SI is 'where the same model generates additional training examples from its own uncertain cases'; TT-D is 'where a stronger model generates similar examples... enabling student to adapt using distilled supervision.' Note that both variants update weights (test-time fine-tuning).",
+   "source": "https://arxiv.org/abs/2510.07841"
+  },
+  {
+   "claim": "STOP (2310.02304): 'Since the language models themselves are not altered, this is not full recursive self-improvement'; with GPT-3.5 and Mixtral performance degrades; only 12% of GPT-3.5 runs gain at least 3%",
+   "status": "confirmed",
+   "correction": "All verbatim: Fig. caption '...GPT-3.5 (middle) and Mixtral (right), performance degrades' and 'only 12% of GPT-3.5 runs yielded at least a 3% improvement.'",
+   "source": "https://arxiv.org/pdf/2310.02304"
+  },
+  {
+   "claim": "Yang et al. 2026 (2603.25681, §1): \"'Self' does not imply the absence of external components; auxiliary modules such as teacher models, verifiers, critics, reward models... may still be used. The key requirement is that the learning loop itself is fully automated\"",
+   "status": "confirmed",
+   "correction": "Verbatim. The full sentence continues '...or automated evaluators may still be used. The key requirement is that the learning loop itself is fully automated once deployed.' Title: 'Self-Improvement of Large Language Models: A Technical Overview and Future Outlook'.",
+   "source": "https://arxiv.org/html/2603.25681"
+  },
+  {
+   "claim": "Gao et al. 2025 survey (2507.21046): a self-evolving agent 'modifies its internal parameters, contextual state, toolset, or architectural topology based on its own trajectories or feedback signals'; 'we do not impose a rigid exclusion threshold'; spans 'proto-evolution' to 'strong self-evolution'; 'locus of autonomy'; includes ADAS/AFlow; no statement on optimizer identity",
+   "status": "confirmed",
+   "correction": "All confirmed. The survey covers ADAS and AFlow (workflow optimization) and DGM and Gödel Agent (single-agent optimization) as self-evolving. I found no statement requiring the optimizer to be the same model, so 'not excluded' is a fair reading but is an inference, not a quote.",
+   "source": "https://arxiv.org/html/2507.21046"
+  },
+  {
+   "claim": "Fang et al. 2025 (2508.07407): framework of System Inputs, Agent System, Environment, Optimisers; 'Three Laws' (Endure / Excel / Evolve)",
+   "status": "confirmed",
+   "correction": "Confirmed from the primary PDF, not only the alphaXiv summary: 'Three Laws of Self-Evolving AI Agents — Endure (safety adaptation), Excel (performance preservation), and Evolve (autonomous optimisation)'. The abstract names the four components.",
+   "source": "https://arxiv.org/abs/2508.07407 ; https://arxiv.org/pdf/2508.07407"
+  },
+  {
+   "claim": "Tao et al. 2024 (2404.14387) frames self-evolution as LLMs that 'autonomously acquire, refine, and learn from experiences generated by the model itself', against 'human or external model supervision'",
+   "status": "confirmed",
+   "correction": "Verbatim in the abstract. Whether its taxonomy includes GPT-4-assisted methods is still unchecked.",
+   "source": "https://arxiv.org/abs/2404.14387"
+  },
+  {
+   "claim": "Ren, ..., Zhuge, Schmidhuber 2026 (2607.13104, §3.2): self-improvement is 'persistent, endogenous adaptation' driven by 'signals induced by its own execution' via a 'self-induced' update operator; it separates FM (θ) from scaffolding (Σ) improvement; it says nothing about stronger teachers",
+   "status": "confirmed",
+   "correction": "Confirmed. Title: 'Self-Improvements in Modern Agentic Systems: A Survey'; Zhuge and Schmidhuber are among the authors. I did not check the first-author name 'Ren'.",
+   "source": "https://arxiv.org/html/2607.13104v1"
+  },
+  {
+   "claim": "Chen, Wang, Qu 2026 (2607.07663): bounded self-refinement is 'against a fixed, external evaluator'; open-ended RSI 'modifies the system and the criteria or machinery of improvement itself'; a human-in/on/closed loop axis; on-policy self-distillation is 'the most closed training loop... since even the teacher signal is self-generated'",
+   "status": "confirmed",
+   "correction": "All verbatim. The paper does not discuss stronger external optimizers.",
+   "source": "https://arxiv.org/html/2607.07663"
+  },
+  {
+   "claim": "Liu & van der Schaar, ICML 2025 (2506.05109): truly self-improving agents need intrinsic metacognition; current agents rely on extrinsic 'fixed, human-designed loops'",
+   "status": "confirmed",
+   "correction": "Verbatim in the abstract: 'extrinsic metacognitive mechanisms, which are fixed, human-designed loops that limit scalability and adaptability.'",
+   "source": "https://arxiv.org/abs/2506.05109"
+  },
+  {
+   "claim": "OPD definition (Thinking Machines, Kevin Lu et al., 2025-10-27): 'sample trajectories from the student model and use a high-performing teacher to grade each token', per-token reverse KL, updates student weights; off-policy = SFT on external outputs",
+   "status": "confirmed",
+   "correction": "Correct.",
+   "source": "https://thinkingmachines.ai/blog/on-policy-distillation/"
+  },
+  {
+   "claim": "OPD survey (2604.00626) defines on-policy as training data 'sampled from the student's own current policy' and excludes 'inference-time methods that leave model weights unchanged', while covering black-box verbal-feedback teachers like Lion",
+   "status": "confirmed",
+   "correction": "All three confirmed in the PDF. Authors: Mingyang Song, Mao Zheng. Under this definition an Opus proposer that edits a harness is outside OPD's scope.",
+   "source": "https://arxiv.org/pdf/2604.00626"
+  },
+  {
+   "claim": "Yin et al. 2026 (2609.30652): OPD uses an 'external teacher'; on-policy self-distillation (OPSD) 'eliminates the need for the external teacher'",
+   "status": "confirmed",
+   "correction": "Correct; OPSD uses 'a second frozen copy of the student model' as teacher. The paper's title, 'Recursive Self-Improvement via On-Policy Distillation for Reasoning', shows that the authors count the self-teacher variant as RSI.",
+   "source": "https://arxiv.org/abs/2609.30652"
+  },
+  {
+   "claim": "AI4AI strong-to-weak (Qian et al. 2026, 2608.12307): calls strong-builder to weak-target harness construction 'test-time capability transfer'; target score 0.49 to 0.91; harness quality rises monotonically with builder reasoning effort; presented as an alternative / test-time counterpart to OPD-style distillation",
+   "status": "confirmed",
+   "correction": "Numbers and the phrase are confirmed. Small wording correction: the paper names on-policy distillation among training-time methods and calls its approach 'an important complement to conventional training-time distillation', so 'complement' rather than 'alternative'.",
+   "source": "https://arxiv.org/abs/2608.12307"
+  },
+  {
+   "claim": "Meta-Skills (Qian et al. 2026, 2609.38143): GPT-5.6-Sol builder; targets Gemini-3.6-Flash, Qwen3.8-Flash, GPT-OSS-120B; same-model builder=target with Gemini-3.6-Flash / 3.1-Pro gives +18.71 points; calls it 'self-improvement without a stronger external teacher'",
+   "status": "confirmed",
+   "correction": "All confirmed in the PDF (§5.2: 'Meta-skills need not rely on a stronger external teacher: the same model can serve as both Builder and Target... average gains of 18.71 points').",
+   "source": "https://arxiv.org/pdf/2609.38143"
+  },
+  {
+   "claim": "Self-Challenging Agents (2506.01716): 'Distillation' setting = Llama-3.1-70B challenger with an 8B executor trained by SFT on 70B trajectories, 32.2% avg Pass@1; 'Self-improvement' = same 8B LLM, 23.5% from 12.0% zero-shot",
+   "status": "wrong",
+   "correction": "The numbers are right (32.2; 12.0 to 23.5), but the role assignment is wrong. In both settings the task challenger is 'the same fixed Llama-3.1-8B model'. The 70B model is used only 'as the stronger model to sample demonstration trajectories' in the distillation setting. Training is described as RL fine-tuning of the 8B executor, with all 70B demonstration trajectories used in distillation. The paper's framing does support the pack: 'distillation, where the goal is to distill the expertise of a stronger model to a weaker model' vs 'self-improvement, where in the absence of a stronger model the weaker model needs to supervise itself'.",
+   "source": "https://arxiv.org/pdf/2506.01716 (Intro, §5.2, Table 1)"
+  },
+  {
+   "claim": "Weng, 'Harness Engineering for Self-Improvement' (Lil'Log, 2026-07-04): on SIA, the task agent is much weaker than the Meta-/Feedback-Agent (gpt-oss-120b vs Claude Sonnet 4.6), so the evidence is provisional; on Autodata, 'more like indirect distillation... with less RSI flavor'",
+   "status": "confirmed",
+   "correction": "Both passages are confirmed on the blog.",
+   "source": "https://lilianweng.github.io/posts/2026-07-04-harness/"
+  },
+  {
+   "claim": "Kamoi et al. TACL 2024 (2406.01297): cross-model correction 'generates feedback or refines the responses using models different from the model that generates initial responses' and is 'unsuitable for evaluating whether LLMs can improve their own initial responses'",
+   "status": "confirmed",
+   "correction": "Verbatim. The paper adds that cross-model correction can still be used to test whether the final responses beat other methods (RQ3).",
+   "source": "https://arxiv.org/pdf/2406.01297"
+  },
+  {
+   "claim": "Mind the Gap (Song et al., 2412.02674): the generation-verification gap scales with pretraining flops; in cross-verification the gap 'increases with verifier capability and decreases with generator capability'; models do not self-improve on tasks beyond their inherent capability",
+   "status": "confirmed",
+   "correction": "Confirmed, with nuance. It is a 'variant' (the relative GV-gap) under 'certain verification methods' that scales monotonically. The third point reads 'most models do not achieve self-improvement in information retrieval or reasoning tasks that exceed their inherent reasoning or planning capabilities.'",
+   "source": "https://arxiv.org/pdf/2412.02674"
+  },
+  {
+   "claim": "Live-SWE-agent (2511.13646): with GPT-5-Nano, self-evolution does significantly worse than the base scaffold",
+   "status": "confirmed",
+   "correction": "Table 5: GPT-5-Nano drops from 44.0% (mini-SWE-agent) to 14.0% (-68.2%) and GPT-5-Mini goes from 60 to 58. Gains appear only with stronger models (GPT-5 +13.3%, Claude 4.5 Sonnet +22.6%).",
+   "source": "https://arxiv.org/pdf/2511.13646"
+  },
+  {
+   "claim": "ExpeL (2308.10144): gpt-4-0613 extracts insights for a gpt-3.5-turbo-0613 executor; gpt-3.5 insights do worse (Sec. 5.6)",
+   "status": "confirmed",
+   "correction": "Correct: 'gpt-4 to extract insights outperforms gpt-3.5-turbo (refer to Sec. 5.6)'. The appendix says gpt-3.5-turbo-0613 is used for all evaluation.",
+   "source": "https://arxiv.org/pdf/2308.10144"
+  },
+  {
+   "claim": "El, Yuksekgonul, Zou 2025 (2510.06711): GPT-4o meta-agent and GPT-3.5 designed agents; design cost breaks even only at about 15k examples, on two datasets",
+   "status": "confirmed",
+   "correction": "Correct; the paper notes the setup is 'consistent with the setup in Hu et al. (2024)'.",
+   "source": "https://arxiv.org/pdf/2510.06711"
+  },
+  {
+   "claim": "AFlow (2410.10762): Claude-3.5-sonnet optimizer; executors GPT-4o-mini, DeepSeek-V2.5, GPT-4o, Claude-3.5-sonnet",
+   "status": "confirmed",
+   "correction": "Correct: 'We employ Claude-3.5-sonnet as the optimizer'.",
+   "source": "https://arxiv.org/html/2410.10762"
+  },
+  {
+   "claim": "Agent0 (2511.16043): two agents 'initialized from the same base LLM', no external data",
+   "status": "confirmed",
+   "correction": "Correct.",
+   "source": "https://arxiv.org/abs/2511.16043"
+  },
+  {
+   "claim": "Qwen3 report (2505.09388) uses 'Strong-to-Weak Distillation' (off-policy, then on-policy) for small models at about 1/10 the GPU hours",
+   "status": "confirmed",
+   "correction": "Correct (§4.5).",
+   "source": "https://arxiv.org/pdf/2505.09388"
+  },
+  {
+   "claim": "Reviewers increasingly treat a stronger proposer as a confound that needs ablating (and claims about what OpenReview reviewers said of ADAS/DGM)",
+   "status": "unverifiable",
+   "correction": "No primary source checked. The pack itself could not access OpenReview. Present this as the authors' inference, supported indirectly by ACE, Self-Harness, Weng and Meta-Skills, not as documented reviewer behaviour.",
+   "source": "none"
+  }
+ ],
+ "notes": "I checked the claims against primary PDFs, HTML pages and code. Most of the pack holds up.\n\n**Two substantive errors:**\n1. **DGM role assignment.** The distillation-confound table says DGM's proposer is Claude 3.5 Sonnet, 'same model on SWE-bench'. This is wrong. DGM uses a separate, different FM, OpenAI o1 (o1-2024-12-17), to read the logs and write the improvement task. Claude 3.5 Sonnet only implements it. The diagnosis prompt also contains SWE-bench's private test patch. The systems-table version is the correct one.\n2. **Self-Challenging Agents.** Llama-3.1-70B is not the challenger. In both settings the challenger is the fixed 8B model; 70B only samples demonstration trajectories in the distillation setting. The numbers (32.2 / 23.5 / 12.0) are right.\n\n**Minor wording fixes:**\n- ACE: the paper says 'up to 17.1%', not '+17.1% average'. Table 16 is on FiNER, not AppWorld.\n- AI4AI (2608.12307) calls itself a 'complement' to training-time distillation, not an alternative.\n- GEPA's 'same model' quote is about the compound-system modules. Same-model reflection is supported separately.\n- SICA's ADAS critique is 'the meta-agent improves the target agent, not itself'.\n- Self-Harness does not say 'fixed'.\n- Meta-Harness executor lists differ between pack sections, but all are consistent with the paper.\n\n**Role facts for the student's question, all confirmed:**\n- **Stronger or different proposer, still published under 'self-improving' or 'recursive self-improvement' labels:** DGM (o1 diagnoser, ICLR 2026), HGM (GPT-5 to GPT-5-mini; Qwen3-Coder-480B to 30B), Gödel Agent (gpt-4o to gpt-3.5), ADAS (GPT-4 to GPT-3.5), AFlow (Claude-3.5-sonnet optimizer), Hyperagents (Claude 4.5 Sonnet to GPT-4o / o4-mini).\n- **Same model by design:** SICA (with an o3-mini sub-agent), GEPA, ACE, Self-Harness, Live-SWE-agent, STOP, Agent0.\n- **Labelled as outer-loop or capability transfer:** Meta-Harness ('outer-loop', Opus 4.6 proposer, admits 'one particularly strong coding-agent proposer') and AI4AI ('test-time capability transfer').\n\n**Definitions, all confirmed verbatim:**\n- Permissive: Yang 2026 explicitly allows teacher models; Gao 2025 sets no exclusion threshold and includes ADAS/AFlow; Fang 2025 treats the Optimiser as a separate component.\n- Strict: Tao 2024 ('generated by the model itself'), Ren et al. 2026 ('endogenous', 'self-induced'), Chen 2026 (the bounded vs RSI split).\n- Critical commentary: Weng's blog (SIA 'provisional', Autodata 'indirect distillation... less RSI flavor') and Kamoi (cross-model correction is 'unsuitable' for testing self-improvement).\n\n**Proposer-strength evidence, all confirmed:**\n- ACE Table 16: +5.9 / +7.6 / +7.8 for weaker / same / stronger reflector.\n- Gains shrink or reverse with weak models: STOP (GPT-3.5 and Mixtral degrade), Live-SWE-agent (GPT-5-Nano 44 to 14), ExpeL (gpt-3.5 insights worse).\n- Mind the Gap: in cross-verification the gap increases with verifier capability.\n- AlphaEvolve: improves with the underlying LLM.\n- Meta-Skills: same model +18.71.\n\n**OPD definition, confirmed:** Thinking Machines (per-token reverse KL, weight updates) and Yin 2026 (OPD uses an external teacher; OPSD removes it). The OPD survey 2604.00626 explicitly excludes inference-time methods that leave weights unchanged. So an Opus-5.5 harness proposer is not OPD technically. The literature's closest names for it are cross-model correction, test-time distillation (TT-D, though TT-D updates weights) and test-time capability transfer.\n\n**Not checked:** Furong Huang blog quote, AHE cross-family numbers, OPRO '20x', Voyager '5.7x', R-Zero collapse, ShinkaEvolve, W4S, TextGrad, MIPROv2, SEAL, Absolute Zero numbers, the Burns et al. PGR metric, and any reviewer opinions. The Qwen3.8-27B and Opus 5.5 capability premises are from the student's brief and were not checked."
+}
