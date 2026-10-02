@@ -63,3 +63,23 @@ in the common FORMAT for all three arms; only the guidance content differs. (f) 
 (g) Correction: detectors see the FIRST 200 chars of each output (that is what the logs keep), not a tail. (h) Harness hardening in
 bos_appworld_v3 (a pre_call returning a non-string is ignored; a raising setup hook is recorded instead of crashing the task); no
 effect on unpatched F0 runs.
+
+A2 (2026-10-03). REGIME DECIDED by the section-0 rule: thinking OFF scored 15/50 and 14/50 on Discovery (mean 14.5 < 22) vs 26/50
+ON -> thinking ON for every executor run (BOS_THINK_OFF=0). Discovery data for Stage 1 = CC_F0_orig_seed1 + CC_F0_fix_seed1 (both
+thinking ON, timeout 900; they differ only in the parse fix, which changed nothing: 25 vs 26, McNemar p = 1). Validation = new
+CC_T1_F0_val seeds 1, 2. Proposer reasoning_effort = medium for all arms (probe on the round-1 prompt: xhigh 11.8k/15.5k tokens and
+20-29 min per proposal under load; medium 6.9k tokens, valid; low ran to the 16k cap). The validation read-out is computed post hoc with boost/rescore.py (admission never uses validation).
+STAGE 1b ("closed loop v2", requested by the user; runs alongside v1, does not replace it):
+  Candidate pool per round = PROGRAMMATIC features (enumerated from a fixed grammar over the first L cells: calls per app / per API,
+  docs lookups, docs-for-unused-app, errors, error streaks, repeated cells, empty outputs, time to first action, pagination, loops;
+  no LLM) + SEMANTIC criteria (the self-proposer writes 3 natural-language criteria per round from examples; no code).
+  Scoring: programmatic = code; semantic = a blind judge (Codex gpt-5.6-luna, reasoning high) that sees ONE trajectory prefix + ONE
+  criterion, returns {evidence_cell, present in {0,1}}; 3 independent votes, majority. It never sees outcomes, goal checks, other
+  criteria, weights or other trajectories. (Pilot on 10 prefixes: pairwise vote agreement 8/10, majority vs a code proxy 8/10.)
+  Selection = XGBoost second-order gain for adding standardized feature z to the current logistic model (g = p - y, h = p(1-p)):
+  Gain(z) = (sum g z)^2 / (2 (sum h z^2 + lambda)), lambda = 1. Admission: NESTED grouped CV of the whole step "pick argmax-gain
+  candidate from the pool on the training folds, refit, score the test fold" must improve CV log-loss by >= 0.005; then the
+  full-data argmax is admitted. Arms: V2_FULL (programmatic + semantic from residual-targeted examples), V2_PROG (programmatic only,
+  no LLM at all), V2_SEM (semantic only, targeted), V2_SEM_UNT (semantic only, random examples). Rounds 6. Same validation read-out
+  and bootstrap as section 1; PRIMARY v2 contrast: V2_FULL vs V2_PROG (does the LLM-proposed, judge-scored layer add held-out signal
+  beyond pure math features); SECONDARY: V2_SEM vs V2_SEM_UNT (targeting), V2_FULL vs v1 BOOST.
