@@ -92,6 +92,8 @@ def main():
             order = pf + ps; random.Random(1000 * a.seed + rnd).shuffle(order)
             msgs = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": sem_prompt(adm, w_now, [(rd[i], p_oof[i]) for i in order], instr)}]
             with ThreadPoolExecutor(a.P) as ex: outs = list(ex.map(lambda _: PR.safe_chat(msgs), range(a.P)))
+            if all(str(u.get("finish", "")).startswith("error") for _, u in outs):   # never let a dead proposer silently turn a semantic arm into V2_PROG
+                save(); sys.exit(f"round {rnd}: all {a.P} proposer calls failed: {outs[0][1].get('finish')}")
             new, plog, todo = [], [], []
             for text, use in outs:
                 nm, crit = PR.field(text, "NAME")[:60], PR.field(text, "CRITERION")[:500]
