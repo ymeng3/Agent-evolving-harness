@@ -96,3 +96,28 @@ feature or criterion) and make the in-fold argmax unstable (the top one was pick
 pool -0.039), so no behaviour or semantic dimension can ever be selected. Iteration 2b, ONE change vs iteration 1, same data: the
 programmatic pool keeps only the 22 behaviour features (no per-app / per-API counts): arms V2_FULL_B and V2_PROG_B. V2_FULL iteration 1
 was stopped after round 1 and is reported as is. V2_SEM and V2_SEM_UNT (no programmatic pool, unaffected) run as iteration 1.
+
+A5 (2026-10-03 01:30 server time, written before any run it governs). Motivating observation (interim: v1 iteration-1 states copied
+mid-run, re-scored on CC_T1_F0_val seed 1, the only validation run that exists): every admitted v1 dimension makes held-out log-loss
+WORSE than intercept (BOOST rep0 round 4: 0.821, UNTARGET rep1 round 4: 0.785, FIXED: 0.723, intercept: 0.671; AUC 0.35-0.46), and the
+admitted detectors' correlation with success flips sign from Discovery to Validation (task_depth_progress +0.24 -> -0.21,
+setup_cell_fraction -0.32 -> +0.20) while their within-task correlation on Discovery is small. Diagnosis: with ~2 runs per task the
+pooled objective can only learn BETWEEN-task variation (which task families are easy); that does not transfer to new families and
+cannot guide a harness edit. Discovery iteration 1 has only 11 within-task pairs that differ in success (15 in G), from 86 trajectories
+over 44 tasks.
+Change (new arms; the pooled A3 iteration-2 arms still run unchanged on the same data, so PW vs pooled is ONE change):
+  OBJECTIVE = within-task PAIRWISE, i.e. XGBoost rank:pairwise with query group = task. Rubric score s(x) = sum_k w_k z_k(x), no
+  intercept; data = all ordered pairs (i, j) of the same task with won_i = 1, won_j = 0; loss = mean over pairs of -log sigma(s_i - s_j)
+  (Bradley-Terry on trajectories; any task-level offset cancels). Gain of a standardized candidate z: d = z_i - z_j, m = current margin,
+  g = sigma(m) - 1, h = sigma(m)(1 - sigma(m)), Gain = (sum g d)^2 / (2 (sum h d^2 + lambda)), lambda = 1. Admission: nested task-grouped
+  CV (3 x 5 folds) of "pick argmax gain on training tasks' pairs, refit, score held-out tasks' pairs" lowers the mean held-out pair
+  log-loss by >= 0.005 nats. Semantic arms: examples = the 3 most MISRANKED pairs by out-of-fold margin (distinct tasks; both attempts
+  shown, labelled better / worse; 6 trajectories as before); PW_SEM_UNT = 3 random pairs (distinct tasks). Same proposer (Qwen3.8-27B,
+  effort medium), same blind judge, P = 3, rounds 6. Arms: PW_PROG (full programmatic pool incl. per-app/API counts, which within a task
+  are behaviour rather than task identity; no LLM), PW_FULL (programmatic + targeted semantic), PW_SEM, PW_SEM_UNT.
+  Read-out: validation within-task pairs (needs >= 2 validation runs per task): mean pair log-loss and pair accuracy (= within-task
+  AUC) vs the 0.693 / 0.5 null, task-cluster bootstrap 90% CI. PRIMARY: PW_FULL vs PW_PROG. SECONDARY: PW_SEM vs PW_SEM_UNT; every PW_*
+  arm vs null; PW_* vs the pooled iteration-2 arms on validation pair accuracy.
+Data (continuation of A3, more runs of the same kind): queue 2 more thinking-ON Discovery F0 passes (CC_T1_F0_disc seeds 4, 5) and 2
+more Validation passes (CC_T1_F0_val seeds 3, 4), after the already-queued val s2 and disc s2, s3. The state file records which
+Discovery runs a PW_* arm used; validation pairs come from all CC_T1_F0_val seeds that exist at read-out time (also recorded).
