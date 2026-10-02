@@ -6,6 +6,7 @@ import numpy as np
 L = int(os.environ.get("BOOST_L", "15"))
 ALLOWED_IMPORTS = {"re", "json", "math", "random", "collections", "itertools", "string"}
 FORBIDDEN = {"open", "exec", "eval", "__import__", "compile", "globals", "locals", "getattr", "setattr", "delattr", "vars", "input", "breakpoint", "exit", "quit"}
+_CALL_DONE = re.compile(r"apis\.supervisor\.complete_task\s*\(")
 
 
 def load_runs(paths):
@@ -18,7 +19,7 @@ def load_runs(paths):
         for t, w, tr, cr in zip(d["games"], d["won"], d["traj"], crashed):
             if cr: continue
             cells = [{"i": s["step"], "code": s.get("code") or "", "out": s.get("out") or "", "error": bool(s.get("exec_error")), "reply": s.get("resp") or ""} for s in tr]
-            early_done = any("complete_task" in c["code"] for c in cells[:L])
+            early_done = any(_CALL_DONE.search(c["code"]) for c in cells[:L])   # an actual call, not a docs lookup that mentions the name
             recs.append({"task": t, "seed": d["seed"], "tag": d["tag"], "y": int(bool(w)), "n_cells": len(cells), "cells": cells[:L],
                          "at_risk": len(cells) > L and not early_done})   # landmark set: still running at cell L, so length cannot leak the outcome
     return recs
@@ -34,29 +35,40 @@ def compile_detector(src):
         if isinstance(node, ast.Name) and node.id in FORBIDDEN: raise ValueError(f"forbidden name {node.id}")
         if isinstance(node, ast.Attribute) and node.attr.startswith("__"): raise ValueError("dunder attribute")
     if not any(isinstance(n, ast.FunctionDef) and n.name == "detect" for n in tree.body): raise ValueError("no top-level detect(steps)")
-    ns = {}; exec(compile(src, "<detector>", "exec"), ns)
+    ns = {}
+    with _alarm_guard(5.0):
+        try: exec(compile(src, "<detector>", "exec"), ns)
+        except _Timeout: raise ValueError("module-level code timed out")
     return ns["detect"]
 
 
-class _Timeout(Exception): pass
+class _Timeout(BaseException): pass   # BaseException so a detector's own `except Exception` cannot swallow it
 def _alarm(sig, frame): raise _Timeout()
 
 
+class _alarm_guard:
+    """repeating SIGALRM while active (main thread on POSIX only; no-op elsewhere)."""
+    def __init__(self, s): self.s = s; self.on = hasattr(signal, "SIGALRM") and threading.current_thread() is threading.main_thread()
+    def __enter__(self):
+        if self.on: self.old = signal.signal(signal.SIGALRM, _alarm); signal.setitimer(signal.ITIMER_REAL, self.s, self.s)
+    def __exit__(self, *a):
+        if self.on: signal.setitimer(signal.ITIMER_REAL, 0); signal.signal(signal.SIGALRM, self.old)
+        return False
+
+
 def run_detector(fn, recs, per_call_s=2.0):
-    """-> (values array with nan for errors, n_errors). Each call sees a fresh copy of the cells."""
-    vals, errs = [], 0; use_alarm = hasattr(signal, "SIGALRM") and threading.current_thread() is threading.main_thread()
-    old = signal.signal(signal.SIGALRM, _alarm) if use_alarm else None
+    """-> (values array with nan for errors/timeouts, n_errors). Each call sees a fresh copy of the cells."""
+    vals, errs = [], 0
     for r in recs:
         try:
-            if use_alarm: signal.setitimer(signal.ITIMER_REAL, per_call_s)
-            v = float(fn([dict(c) for c in r["cells"]]))
+            with _alarm_guard(per_call_s):
+                v = float(fn([dict(c) for c in r["cells"]]))
             if not math.isfinite(v): raise ValueError("non-finite")
-        except Exception:
+        except KeyboardInterrupt:
+            raise
+        except BaseException:   # includes _Timeout and SystemExit raised by a detector
             v = float("nan"); errs += 1
-        finally:
-            if use_alarm: signal.setitimer(signal.ITIMER_REAL, 0)
         vals.append(v)
-    if use_alarm: signal.signal(signal.SIGALRM, old)
     return np.array(vals, dtype=float), errs
 
 
@@ -140,7 +152,7 @@ def cluster_bootstrap_diff(groups, a, b, B=2000, seed=0):
 def per_traj_logloss(y, p): p = np.clip(p, 1e-6, 1 - 1e-6); return -(y * np.log(p) + (1 - y) * np.log(1 - p))
 
 
-def window(cells, code_n=200, out_n=140):
+def window(cells, code_n=200, out_n=200):
     return "\n".join(f"[cell {c['i']}]{' (ERROR)' if c['error'] else ''} {c['code'][:code_n]}\n  -> {c['out'][:out_n]}" for c in cells)
 
 

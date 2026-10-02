@@ -88,7 +88,10 @@ def run_eval(patch_path, seed, tag, n_games=None, workers=4):
             # the demo ends with the example task; replace the last USER turn's task line with the real task
             task_msg = f"My name is: {world.task.supervisor.first_name} {world.task.supervisor.last_name}. My personal email is {world.task.supervisor.email} and phone number is {world.task.supervisor.phone_number}.\nTask: {world.task.instruction}"
             hist = []   # list of (assistant_text, user_output)
-            setup_codes = ([str(hooks["SETUP_CODE"])] if hooks.get("SETUP_CODE") else []) + ([f() for _, f in V3["setup"]] if V3 else [])
+            setup_codes = [str(hooks["SETUP_CODE"])] if hooks.get("SETUP_CODE") else []
+            for eid, f in (V3["setup"] if V3 else []):   # 2026-10-03: a raising setup hook used to crash every task of the pass
+                try: sc = f(); setup_codes += [sc] if isinstance(sc, str) and sc.strip() else []
+                except Exception as e: state.setdefault("_edit_err", []).append(f"{eid}:setup:{str(e)[:40]}")
             for sc in setup_codes:
                 try: state["_setup_out"] = world.execute(sc)[:300]
                 except Exception as e: state["_setup_out"] = f"setup error {e}"[:300]
@@ -112,7 +115,7 @@ def run_eval(patch_path, seed, tag, n_games=None, workers=4):
                 except Exception: pass
                 if V3:
                     for eid, f in V3["pre_call"]:
-                        try: prompt = f(prompt, state)
+                        try: p2 = f(prompt, state); prompt = p2 if isinstance(p2, str) and p2.strip() else prompt   # 2026-10-03: a hook returning None used to send content=None
                         except Exception as e: si.setdefault("edit_err", []).append(f"{eid}:pre_call:{str(e)[:40]}")
                 si["pc"] = int(prompt != prompt0); msgs[-1] = {"role": "user", "content": prompt}
                 resp = ""

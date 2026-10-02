@@ -11,11 +11,11 @@ _MOCK = [  # offline tests only (BOOST_MOCK=1): canned replies, including one th
 _mock_i = [0]
 
 
-def chat(messages, max_tokens=8000, temperature=0.7, thinking=True, retries=4):
+def chat(messages, max_tokens=16000, temperature=0.7, thinking=True, retries=4):
     if os.environ.get("BOOST_MOCK") == "1":
         _mock_i[0] += 1; return _MOCK[_mock_i[0] % len(_MOCK)], {"in": 0, "out": 0, "finish": "mock"}
     from openai import OpenAI
-    cl = OpenAI(api_key=os.environ["BOS_API_KEY"], base_url=os.environ["BOS_BASE_URL"], timeout=float(os.environ.get("BOS_TIMEOUT", "900")), max_retries=0)
+    cl = OpenAI(api_key=os.environ["BOS_API_KEY"], base_url=os.environ["BOS_BASE_URL"], timeout=float(os.environ.get("BOOST_TIMEOUT", "1800")), max_retries=0)
     last = None
     for att in range(retries):
         try:
@@ -30,10 +30,17 @@ def chat(messages, max_tokens=8000, temperature=0.7, thinking=True, retries=4):
 def last_block(text, must_contain=None):
     """last fenced python block (optionally containing a marker); tolerates a final unclosed fence."""
     blocks = re.findall(r"```(?:python)?[ \t]*\n(.*?)```", text, re.S)
-    tail = re.search(r"```(?:python)?[ \t]*\n((?:(?!```).)*)$", text, re.S)
-    if tail: blocks.append(tail.group(1))
+    if text.count("```") % 2 == 1:   # a genuinely unclosed final fence; otherwise prose after a closing fence would be taken as code
+        tail = re.search(r"```(?:python)?[ \t]*\n((?:(?!```).)*)$", text, re.S)
+        if tail: blocks.append(tail.group(1))
     blocks = [b for b in blocks if must_contain is None or must_contain in b]
     return blocks[-1].strip() + "\n" if blocks else None
+
+
+def safe_chat(messages, **kw):
+    """never raises: a proposer outage becomes an empty reply (an invalid candidate) instead of killing an unattended run."""
+    try: return chat(messages, **kw)
+    except Exception as e: return "", {"in": 0, "out": 0, "finish": f"error: {str(e)[:120]}"}
 
 
 def field(text, name):

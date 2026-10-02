@@ -10,6 +10,9 @@ import common as C
 def stage1(out):
     S = {arm: json.load(open(os.path.join(out, arm, "state.json"))) for arm in ("BOOST", "UNTARGET", "FIXED") if os.path.exists(os.path.join(out, arm, "state.json"))}
     for arm, s in S.items():
+        if arm != "FIXED" and s["rounds"][-1]["round"] != s.get("rounds_planned", s["rounds"][-1]["round"]):
+            print(f"WARNING: {arm} stopped at round {s['rounds'][-1]['round']} of {s.get('rounds_planned')} (run incomplete)")
+    for arm, s in S.items():
         print(f"\n{arm}: admitted {len(s['rubric'])} dims")
         for d in s["rubric"]: print(f"   r{d['round']} {d['name']}: {d['desc'][:110]}  (cv_gain {d.get('cv_gain')})")
         print("   round  k  disc_cv_ll  val_ll  val_auc  val_brier")
@@ -46,14 +49,15 @@ def stage2(f0a, f0b, metas, runs_dir):
             dw = [int(wr[t]) - int(wa[t]) for t in tasks]; dg = [(gr[t] or 0) - (ga[t] or 0) for t in tasks]
             by_arm.setdefault(m["arm"], []).append((m, dw, dg))
             print(f"{m['arm']:9s} {m['pid'][:48]:48s} won {sum(R['won'])}/{len(tasks)} (F0 {sum(A['won'])})  d_won {np.mean(dw):+.3f}  G sign +{sum(x > 0 for x in dg)}/-{sum(x < 0 for x in dg)}  target={m.get('target')}")
-    means = {}
+    per_task = {}   # arm -> per-task mean over its edits of d_won; the unit of the sign-flip test is the TASK (edits share the F0 outcome)
     for arm, rows in by_arm.items():
-        dw = sum((r[1] for r in rows), []); dg = sum((r[2] for r in rows), []); means[arm] = dw
-        print(f"\nARM {arm}: {len(rows)} edits, {len(dw)} paired task outcomes, mean d_won {np.mean(dw):+.3f} (sign-flip p {signflip_p(dw):.3f}), "
+        if len(rows) < 3: print(f"WARNING: arm {arm} has only {len(rows)} valid evaluated edits (planned 3)")
+        M = np.array([r[1] for r in rows], float); per_task[arm] = M.mean(0); dg = sum((r[2] for r in rows), [])
+        print(f"\nARM {arm}: {len(rows)} edits x {M.shape[1]} tasks, mean d_won {M.mean():+.3f} (task-level sign-flip p {signflip_p(per_task[arm]):.3f}), "
               f"G sign +{sum(x > 0 for x in dg)}/-{sum(x < 0 for x in dg)}")
     for a, b in (("G_BOOST", "G_RAW"), ("G_BOOST", "G_GENERIC"), ("G_RAW", "G_GENERIC")):
-        if a in means and b in means and len(means[a]) == len(means[b]):
-            d = np.array(means[a]) - np.array(means[b]); print(f"CONTRAST {a} - {b}: {d.mean():+.3f} (paired sign-flip p {signflip_p(d):.3f}, n={len(d)})")
+        if a in per_task and b in per_task:
+            d = per_task[a] - per_task[b]; print(f"CONTRAST {a} - {b}: {d.mean():+.3f} (task-level paired sign-flip p {signflip_p(d):.3f}, n={len(d)} tasks)")
 
 
 if __name__ == "__main__":

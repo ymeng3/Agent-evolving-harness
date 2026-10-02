@@ -53,4 +53,13 @@ threshold, number of rounds, edit format — each written here as a dated amendm
 validation set is reused across iterations; the sealed test set is never touched. Every iteration is reported, including null ones.
 
 ## Amendments
-(none yet)
+A1 (2026-10-03, before any run; from an independent code review). (a) Examples shown to the proposer contain at most one trajectory
+per task in BOTH arms (BOOST was otherwise picking both seeds of one task). (b) "called complete_task" for the landmark = an actual
+`apis.supervisor.complete_task(` call, not a docs lookup naming it. (c) Stage 1 runs 2 independent replicates (seed 0, 1) of BOOST
+and UNTARGET; PRIMARY = mean over the 2 replicates of the per-trajectory validation log-loss difference BOOST - UNTARGET after
+round 6, task-cluster bootstrap 90% CI. (d) Stage 2 test unit = task (per-task mean over an arm's edits), not (edit, task).
+(e) The "record cells in state in post_exec, intervene only when the condition holds" recipe and the always-return-a-string rule are
+in the common FORMAT for all three arms; only the guidance content differs. (f) Proposer: thinking ON, max_tokens 16000, all arms.
+(g) Correction: detectors see the FIRST 200 chars of each output (that is what the logs keep), not a tail. (h) Harness hardening in
+bos_appworld_v3 (a pre_call returning a non-string is ignored; a raising setup hook is recorded instead of crashing the task); no
+effect on unpatched F0 runs.

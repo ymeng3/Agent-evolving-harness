@@ -10,23 +10,35 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import common as C, proposer as PR
 
 MIN_GAIN = float(os.environ.get("BOOST_MIN_GAIN", "0.005"))
+try: GIT = __import__("subprocess").run(["git", "-C", os.path.dirname(os.path.abspath(__file__)), "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip()
+except Exception: GIT = None
 SYSTEM = ("You maintain an executable RUBRIC that explains why an LLM agent fails multi-app tool-use tasks (AppWorld). Each rubric dimension "
           "is a small Python detector over the agent's first cells. You add one dimension at a time, like a weak learner in gradient boosting: "
           "it must capture what the CURRENT rubric gets wrong.")
 
 
 def instructions(task_ids, cache):
+    """fetch task instructions once (atomic write, shared by all arms); fail loudly if any is missing so arms cannot differ."""
     have = json.load(open(cache)) if os.path.exists(cache) else {}
     miss = [t for t in task_ids if t not in have]
-    if miss:
-        try:
-            from appworld import AppWorld
-            for t in miss:
-                with AppWorld(task_id=t, experiment_name="cc_boost_instr", random_seed=1) as w: have[t] = w.task.instruction
-            json.dump(have, open(cache, "w"), indent=1)
-        except Exception as e:
-            print("instructions unavailable:", str(e)[:120], flush=True)
+    if miss and os.environ.get("BOOST_ALLOW_NO_INSTR") != "1":
+        from appworld import AppWorld
+        for t in miss:
+            with AppWorld(task_id=t, experiment_name="cc_boost_instr", random_seed=1) as w: have[t] = w.task.instruction
+        tmp = cache + f".tmp{os.getpid()}"; json.dump(have, open(tmp, "w"), indent=1); os.replace(tmp, cache)
+        miss = [t for t in task_ids if t not in have]
+        if miss: sys.exit(f"instructions missing for {len(miss)} tasks")
     return have
+
+
+def distinct_tasks(cands, recs, n):
+    """first n candidates with at most one trajectory per task (both arms), so BOOST cannot spend slots on two seeds of one task."""
+    out, seen = [], set()
+    for i in cands:
+        if recs[i]["task"] in seen: continue
+        out.append(i); seen.add(recs[i]["task"])
+        if len(out) == n: break
+    return out
 
 
 def rubric_text(rubric, w):
@@ -72,7 +84,7 @@ def validate(src, rd, rv):
 
 
 def gen(msgs):
-    t0 = time.time(); text, use = PR.chat(msgs); return text, use, round(time.time() - t0, 1)
+    t0 = time.time(); text, use = PR.safe_chat(msgs); return text, use, round(time.time() - t0, 1)
 
 
 def parse_validate(text, rd, rv):
@@ -119,7 +131,7 @@ def main():
         m, pv = C.fit_eval(Fd, yd, Fv, yv)
         rec = {"round": rnd, "k": len(rubric), "disc_cv_logloss": cv, "val": {x: m[x] for x in ("logloss", "auc", "brier")}, "w": m["w"], "val_p": pv.tolist(), **extra}
         rounds.append(rec); print(f"  round {rnd}: k={len(rubric)} disc_cv_ll={cv:.4f} val_ll={m['logloss']:.4f} val_auc={m['auc']:.3f} {extra.get('note', '')}", flush=True)
-        json.dump({"arm": a.arm, "L": C.L, "min_gain": MIN_GAIN, "val_tasks": [r["task"] for r in rv], "val_y": yv.tolist(), "rubric": [{k: d[k] for k in ("name", "desc", "src", "round")} | {"cv_gain": d.get("cv_gain")} for d in rubric],
+        json.dump({"arm": a.arm, "L": C.L, "min_gain": MIN_GAIN, "seed": a.seed, "rounds_planned": a.rounds, "disc": a.disc, "val": a.val, "model": os.environ.get("BOS_MODEL"), "git": GIT, "val_tasks": [r["task"] for r in rv], "val_y": yv.tolist(), "rubric": [{k: d[k] for k in ("name", "desc", "src", "round")} | {"cv_gain": d.get("cv_gain")} for d in rubric],
                    "rounds": rounds, "proposer_log": plog}, open(os.path.join(od, "state.json"), "w"), indent=1)
     snapshot(0, {"note": "initial"})
     if a.arm == "FIXED": return
@@ -128,10 +140,12 @@ def main():
         w_now = C.fit_eval(Fd, yd, matrix(rubric, "vv", len(rv)), yv)[0]["w"]
         fails, succ = [i for i in range(len(rd)) if yd[i] == 0], [i for i in range(len(rd)) if yd[i] == 1]
         if a.arm == "BOOST":
-            pick_f = sorted(fails, key=lambda i: resid[i])[:4]; pick_s = sorted(succ, key=lambda i: -resid[i])[:2]
+            f_order = sorted(fails, key=lambda i: resid[i]); s_order = sorted(succ, key=lambda i: -resid[i])
         else:
-            rng = random.Random(1000 * a.seed + rnd); pick_f = rng.sample(fails, min(4, len(fails))); pick_s = rng.sample(succ, min(2, len(succ)))
-        order = pick_f + pick_s; random.Random(rnd).shuffle(order)
+            rng = random.Random(1000 * a.seed + rnd); f_order = rng.sample(fails, len(fails)); s_order = rng.sample(succ, len(succ))
+        pick_f = distinct_tasks(f_order, rd, 4); used = {rd[i]["task"] for i in pick_f}
+        pick_s = distinct_tasks([i for i in s_order if rd[i]["task"] not in used], rd, 2)
+        order = pick_f + pick_s; random.Random(1000 * a.seed + rnd).shuffle(order)
         prompt = build_prompt(rubric, w_now, [(rd[i], p_oof[i]) for i in order], instr); rlog = []
         cands = propose(prompt, rd, rv, a.P, rlog)
         scored = []
