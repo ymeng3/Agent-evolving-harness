@@ -40,7 +40,7 @@ def failure_mass(state, rd):
     if not rub: return []
     fns = [C.compile_detector(d["src"]) for d in rub]
     F = np.array([C.run_detector(f, rd)[0] for f in fns]).T; Z, _ = C.standardize(F); y = np.array([r["y"] for r in rd], float)
-    w = C.fit_logit(Z, y); c = Z * w[1:]; fail_idx = np.nonzero(y == 0)[0]; mass = np.maximum(0, -c[fail_idx]).sum(0); out = []
+    w = C.fit_logit(Z, y); c = Z * w[1:]; fail_idx = np.nonzero(np.array([r["won"] for r in rd]) == 0)[0]; mass = np.maximum(0, -c[fail_idx]).sum(0); out = []
     for k in np.argsort(-mass):
         top, seen = [], set()
         for i in fail_idx[np.argsort(c[fail_idx, k])]:
@@ -52,7 +52,7 @@ def failure_mass(state, rd):
 
 
 def guidance(arm, j, rd, instr, dims, rng):
-    fails = [i for i, r in enumerate(rd) if r["y"] == 0]
+    fails = [i for i, r in enumerate(rd) if r["won"] == 0]
     def win(i): return f"TASK: {instr.get(rd[i]['task'], '(instruction unavailable)')[:400]}\nFIRST CELLS:\n{C.window(rd[i]['cells'])}"
     if arm == "G_BOOST":
         d = dims[j % len(dims)]; ex = "\n\n".join(f"--- failed trajectory {n + 1} ---\n{win(i)}" for n, i in enumerate(d["top_fail"]))

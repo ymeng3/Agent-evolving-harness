@@ -45,7 +45,7 @@ def rubric_text(adm, w):
 
 
 def sem_prompt(adm, w, examples, instr):
-    ex = "\n\n".join(f"=== EXAMPLE {k + 1}: {'SUCCEEDED' if r['y'] else 'FAILED'} eventually; current rubric predicted p(success)={p:.2f} ===\n"
+    ex = "\n\n".join(f"=== EXAMPLE {k + 1}: {'SUCCEEDED' if r['won'] else 'FAILED'} eventually; current rubric predicted p(success)={p:.2f} ===\n"
                      f"TASK: {instr.get(r['task'], '')[:400]}\n{C.window(r['cells'])}" for k, (r, p) in enumerate(examples))
     return (f"SETTING. In AppWorld the agent writes one python cell per step that calls app APIs; the task ends when it calls "
             f"apis.supervisor.complete_task(). Budget: 30 cells. Below are the FIRST {C.L} cells of trajectories still running at cell {C.L}, and "
@@ -83,7 +83,7 @@ def main():
         info = {"round": rnd}
         if use_sem:   # new semantic candidates for this round
             _, p_oof = C.cv_logloss(F, y, groups); resid = y - p_oof; w_now, _ = fit_p(F, y)
-            fails, succ = [i for i in range(len(rd)) if y[i] == 0], [i for i in range(len(rd)) if y[i] == 1]
+            fails, succ = [i for i in range(len(rd)) if rd[i]["won"] == 0], [i for i in range(len(rd)) if rd[i]["won"] == 1]
             if a.arm == "V2_SEM_UNT":
                 rng = random.Random(1000 * a.seed + rnd); f_order, s_order = rng.sample(fails, len(fails)), rng.sample(succ, len(succ))
             else:

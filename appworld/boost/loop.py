@@ -47,7 +47,7 @@ def rubric_text(rubric, w):
 
 
 def example_block(k, r, p, instr):
-    return (f"=== EXAMPLE {k}: {'SUCCEEDED' if r['y'] else 'FAILED'} eventually; current rubric predicted p(success)={p:.2f} ===\n"
+    return (f"=== EXAMPLE {k}: {'SUCCEEDED' if r['won'] else 'FAILED'} eventually; current rubric predicted p(success)={p:.2f} ===\n"
             f"TASK: {instr.get(r['task'], '(instruction unavailable)')[:400]}\n{C.window(r['cells'])}")
 
 
@@ -138,7 +138,7 @@ def main():
     for rnd in range(1, a.rounds + 1):
         Fd = matrix(rubric, "vd", len(rd)); base_cv, p_oof = C.cv_logloss(Fd, yd, gd); resid = yd - p_oof
         w_now = C.fit_eval(Fd, yd, matrix(rubric, "vv", len(rv)), yv)[0]["w"]
-        fails, succ = [i for i in range(len(rd)) if yd[i] == 0], [i for i in range(len(rd)) if yd[i] == 1]
+        fails, succ = [i for i in range(len(rd)) if rd[i]["won"] == 0], [i for i in range(len(rd)) if rd[i]["won"] == 1]
         if a.arm == "BOOST":
             f_order = sorted(fails, key=lambda i: resid[i]); s_order = sorted(succ, key=lambda i: -resid[i])
         else:

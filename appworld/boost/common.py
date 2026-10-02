@@ -4,6 +4,7 @@ import ast, json, math, os, random, re, signal, threading
 import numpy as np
 
 L = int(os.environ.get("BOOST_L", "15"))
+TARGET = os.environ.get("BOOST_TARGET", "won")   # won (prereg default) | G
 ALLOWED_IMPORTS = {"re", "json", "math", "random", "collections", "itertools", "string"}
 FORBIDDEN = {"open", "exec", "eval", "__import__", "compile", "globals", "locals", "getattr", "setattr", "delattr", "vars", "input", "breakpoint", "exit", "quit"}
 _CALL_DONE = re.compile(r"apis\.supervisor\.complete_task\s*\(")
@@ -15,12 +16,13 @@ def load_runs(paths):
     recs = []
     for p in paths:
         d = json.load(open(p))
-        crashed = d.get("crashed") or [None] * len(d["games"])
-        for t, w, tr, cr in zip(d["games"], d["won"], d["traj"], crashed):
+        crashed = d.get("crashed") or [None] * len(d["games"]); Gs = d.get("G") or [None] * len(d["games"])
+        for t, w, tr, cr, G in zip(d["games"], d["won"], d["traj"], crashed, Gs):
             if cr: continue
             cells = [{"i": s["step"], "code": s.get("code") or "", "out": s.get("out") or "", "error": bool(s.get("exec_error")), "reply": s.get("resp") or ""} for s in tr]
             early_done = any(_CALL_DONE.search(c["code"]) for c in cells[:L])   # an actual call, not a docs lookup that mentions the name
-            recs.append({"task": t, "seed": d["seed"], "tag": d["tag"], "y": int(bool(w)), "n_cells": len(cells), "cells": cells[:L],
+            y = float(bool(w)) if TARGET == "won" or G is None else float(G)   # BOOST_TARGET=G: fraction of goal checks passed (quasi-binomial target)
+            recs.append({"task": t, "seed": d["seed"], "tag": d["tag"], "y": y, "won": int(bool(w)), "n_cells": len(cells), "cells": cells[:L],
                          "at_risk": len(cells) > L and not early_done})   # landmark set: still running at cell L, so length cannot leak the outcome
     return recs
 
@@ -104,8 +106,8 @@ def brier(y, p): return float(np.mean((p - y) ** 2))
 
 
 def auc(y, s):
-    """Mann-Whitney AUC with average ranks for ties; nan if one class is empty."""
-    y = np.asarray(y); s = np.asarray(s, dtype=float); n1 = int(y.sum()); n0 = len(y) - n1
+    """Mann-Whitney AUC with average ranks for ties; nan if one class is empty. A fractional target is binarised at 1 (= won)."""
+    y = (np.asarray(y, dtype=float) >= 0.999).astype(int); s = np.asarray(s, dtype=float); n1 = int(y.sum()); n0 = len(y) - n1
     if n1 == 0 or n0 == 0: return float("nan")
     order = np.argsort(s, kind="mergesort"); ranks = np.empty(len(s)); i = 0; ss = s[order]
     while i < len(s):
