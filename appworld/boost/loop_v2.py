@@ -92,17 +92,19 @@ def main():
             order = pf + ps; random.Random(1000 * a.seed + rnd).shuffle(order)
             msgs = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": sem_prompt(adm, w_now, [(rd[i], p_oof[i]) for i in order], instr)}]
             with ThreadPoolExecutor(a.P) as ex: outs = list(ex.map(lambda _: PR.safe_chat(msgs), range(a.P)))
-            new, plog = [], []
+            new, plog, todo = [], [], []
             for text, use in outs:
                 nm, crit = PR.field(text, "NAME")[:60], PR.field(text, "CRITERION")[:500]
-                ok = 20 <= len(crit) and crit not in {c.get("desc") for c in cands}
+                ok = 20 <= len(crit) and crit not in {c.get("desc") for c in cands} and crit not in {t[1] for t in todo}
                 plog.append({"name": nm, "criterion": crit, "usage": use, "ok": ok})
-                if not ok: continue
-                maj, votes = J.score(crit, items); none = sum(m is None for m in maj); vals = [np.nan if m is None else float(m) for m in maj]
+                if ok: todo.append((len(plog) - 1, crit, nm))
+            with ThreadPoolExecutor(max(1, len(todo))) as ex: scored = list(ex.map(lambda t: J.score(t[1], items), todo))   # candidates judged concurrently
+            for (pi, crit, nm), (maj, votes) in zip(todo, scored):
+                none = sum(m is None for m in maj); vals = [np.nan if m is None else float(m) for m in maj]
                 pos = sum(1 for v in vals if v == 1); neg = sum(1 for v in vals if v == 0)
                 agree = np.mean([len(set(x for x in v.values() if x is not None)) == 1 for v in votes.values() if sum(x is not None for x in v.values()) >= 2])
-                plog[-1].update(present=pos, absent=neg, unjudged=none, vote_agreement=float(agree))
-                if none > 0.2 * len(rd) or min(pos, neg) < 3: plog[-1]["ok"] = False; continue
+                plog[pi].update(present=pos, absent=neg, unjudged=none, vote_agreement=float(agree))
+                if none > 0.2 * len(rd) or min(pos, neg) < 3: plog[pi]["ok"] = False; continue
                 c = {"kind": "sem", "name": nm or f"sem_r{rnd}", "desc": crit, "values": vals, "round": rnd, "vote_agreement": float(agree)}; cands.append(c); new.append(c["name"])
             info.update(proposals=plog, new_sem=new, examples=[rd[i]["task"] for i in order])
         pool = [c for c in cands if not any(c is d for d in adm)]
