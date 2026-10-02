@@ -13,7 +13,12 @@ _mock_i = [0]
 
 def chat(messages, max_tokens=16000, temperature=0.7, thinking=True, retries=4):
     if os.environ.get("BOOST_MOCK") == "1":
-        _mock_i[0] += 1; return _MOCK[_mock_i[0] % len(_MOCK)], {"in": 0, "out": 0, "finish": "mock"}
+        _mock_i[0] += 1
+        if "CRITERION:" in messages[-1]["content"]:
+            sem = ["NAME: reads_more_pages\nCRITERION: The agent requests a later page of results (page_index) before acting on a list.",
+                   "NAME: short\nCRITERION: too short", "NAME: retries_after_error\nCRITERION: After a failed cell the agent changes the call instead of repeating it."]
+            return sem[_mock_i[0] % len(sem)], {"in": 0, "out": 0, "finish": "mock"}
+        return _MOCK[_mock_i[0] % len(_MOCK)], {"in": 0, "out": 0, "finish": "mock"}
     from openai import OpenAI
     cl = OpenAI(api_key=os.environ["BOS_API_KEY"], base_url=os.environ["BOS_BASE_URL"], timeout=float(os.environ.get("BOOST_TIMEOUT", "1800")), max_retries=0)
     last = None
