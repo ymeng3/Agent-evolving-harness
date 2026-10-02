@@ -150,7 +150,8 @@ def main():
         t0 = time.time(); F = np.array([d["values"] for d in adm], float).T if adm else np.zeros((len(rd), 0)); info = {"round": rnd}
         if use_sem:
             m_oof = oof_margins(F, I, J, groups); w_now = fit_pw(zfull(F, np.ones(len(rd), bool)), I, J)
-            order = list(np.argsort(m_oof)) if a.arm != "PW_SEM_UNT" else random.Random(1000 * a.seed + rnd).sample(range(len(I)), len(I))
+            tie = np.random.default_rng(1000 * a.seed + rnd).random(len(I))   # round 1 has all margins 0: break ties at random, not by task order
+            order = list(np.lexsort((tie, np.round(m_oof, 9)))) if a.arm != "PW_SEM_UNT" else random.Random(1000 * a.seed + rnd).sample(range(len(I)), len(I))
             sel = pick_pairs(order, I, T, 3); random.Random(1000 * a.seed + rnd).shuffle(sel)
             msgs = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": sem_prompt(adm, w_now, [(I[q], J[q], m_oof[q]) for q in sel], rd, instr)}]
             with ThreadPoolExecutor(a.P) as ex: outs = list(ex.map(lambda _: PR.safe_chat(msgs), range(a.P)))
