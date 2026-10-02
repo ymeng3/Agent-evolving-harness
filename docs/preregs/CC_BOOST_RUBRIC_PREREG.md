@@ -118,6 +118,13 @@ Change (new arms; the pooled A3 iteration-2 arms still run unchanged on the same
   Read-out: validation within-task pairs (needs >= 2 validation runs per task): mean pair log-loss and pair accuracy (= within-task
   AUC) vs the 0.693 / 0.5 null, task-cluster bootstrap 90% CI. PRIMARY: PW_FULL vs PW_PROG. SECONDARY: PW_SEM vs PW_SEM_UNT; every PW_*
   arm vs null; PW_* vs the pooled iteration-2 arms on validation pair accuracy.
+A6 (2026-10-03 03:20 server time, before any iteration-2 / PW run; capacity plan, no change to any rule). Discovery for iteration 2 and
+for all PW_* arms = the 4 thinking-ON passes CC_F0_orig_seed1, CC_F0_fix_seed1, CC_T1_F0_disc seeds 2, 3. Validation read-out = all
+CC_T1_F0_val seeds 1-4 (the queue now runs val seeds 3, 4 before disc seeds 4, 5, because validation pairs gate every A5 read-out;
+disc seeds 4, 5 are reserved for a possible iteration 3). The local judge sustains ~25 concurrent calls, so semantic arms are rationed:
+run all four PW_* arms; the pooled iteration-2 comparison arms are V2_PROG_B and V2_SEM (local) and v1 BOOST + UNTARGET seed 0 only
+(server). V2_FULL_B, V2_SEM_UNT and the seed-1 v1 replicates are NOT re-run in iteration 2 (their iteration-1 results stand as
+reported). The PW-vs-pooled secondary uses V2_SEM and V2_PROG_B.
 Data (continuation of A3, more runs of the same kind): queue 2 more thinking-ON Discovery F0 passes (CC_T1_F0_disc seeds 4, 5) and 2
 more Validation passes (CC_T1_F0_val seeds 3, 4), after the already-queued val s2 and disc s2, s3. The state file records which
 Discovery runs a PW_* arm used; validation pairs come from all CC_T1_F0_val seeds that exist at read-out time (also recorded).
