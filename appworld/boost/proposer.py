@@ -19,8 +19,10 @@ def chat(messages, max_tokens=16000, temperature=0.7, thinking=True, retries=4):
     last = None
     for att in range(retries):
         try:
+            kw = {"enable_thinking": thinking}
+            if thinking and os.environ.get("BOOST_EFFORT"): kw["reasoning_effort"] = os.environ["BOOST_EFFORT"]   # xhigh (template default) | medium | low
             r = cl.chat.completions.create(model=os.environ.get("BOS_MODEL", "qwen/qwen3.8-27b"), messages=messages, temperature=temperature, max_tokens=max_tokens,
-                                           extra_body={"chat_template_kwargs": {"enable_thinking": thinking}})
+                                           extra_body={"chat_template_kwargs": kw})
             return r.choices[0].message.content or "", {"in": r.usage.prompt_tokens, "out": r.usage.completion_tokens, "finish": r.choices[0].finish_reason}
         except Exception as e:
             last = e; time.sleep(5 * (att + 1))
