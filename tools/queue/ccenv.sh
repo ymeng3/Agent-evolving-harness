@@ -3,5 +3,6 @@
 source /root/autodl-tmp/env.sh > /dev/null
 export CC_ROOT=/root/autodl-tmp/cc CC_REPO=/root/autodl-tmp/cc/Agent-evolving-harness
 export BOS_OUT=$CC_REPO/appworld BOS_ALF_OUT=$CC_ROOT/tmp BOS_TMPDIR=$CC_ROOT/tmp TMPDIR=$CC_ROOT/tmp
+export PYTHONPATH=$CC_ROOT/pylib${PYTHONPATH:+:$PYTHONPATH}   # our own extra packages (numpy for appworld/boost), not installed into the shared aw-env
 export BOS_TIMEOUT=900   # a request queued behind a busy shared server waits instead of timing out into a retry / api_error
 mkdir -p $CC_ROOT/tmp $BOS_OUT/results
