@@ -24,5 +24,17 @@ pair accuracy BOOST rep0 0.70 [0.55, 0.85], BOOST rep1 0.75 [0.60, 0.90], UNTARG
 detectors carry some within-task signal that the pooled weights do not exploit; motivates A5, too few pairs to conclude anything.
 
 ## Stage 1 v2 iteration 1 / 2b (local; Codex judge)
-V2_PROG (full pool) and V2_PROG_B: nothing admitted in 6 rounds. V2_FULL: stopped after round 1 (A4). V2_FULL_B, V2_SEM, V2_SEM_UNT:
-running at the time of writing; validation read-out pending.
+Same Discovery / Validation as v1. Read-out by boost/rescore_v2.py (semantic dimensions judge-scored on validation, cached votes).
+
+| arm | admitted (round) | final val log-loss | val AUC | val within-task pair acc (10 pairs, exploratory) |
+|---|---|---|---|---|
+| V2_PROG | none | 0.6771 | 0.500 | 0.5 |
+| V2_PROG_B | none | 0.6771 | 0.500 | 0.5 |
+| V2_FULL | stopped after round 1 (A4), nothing admitted | - | - | - |
+| V2_FULL_B | sem core_data_not_yet_retrieved_by_cell_14 (r1), sem excessive_api_doc_lookups_in_late_cells (r6) | 0.8583 | 0.493 | 0.50 [0.35, 0.65] |
+| V2_SEM_UNT | sem all_required_app_authentications_complete (r1), sem multiple_successful_task_relevant_api_calls (r3) | 0.7566 | 0.584 | 0.60 [0.45, 0.75] |
+| V2_SEM | (still running at the time of writing) | | | |
+
+**Result: null/negative, same as v1.** The XGBoost-gain + nested-CV admission rule rejects every pure programmatic feature (no false
+positive), but the semantic criteria it does admit are "how far along is the agent at cell 14" (progress / task-difficulty proxies) and
+are worse than intercept on new task families. PRIMARY v2 contrast V2_FULL(_B) vs V2_PROG(_B): V2_FULL_B worse (0.858 vs 0.677).
