@@ -83,3 +83,9 @@ STAGE 1b ("closed loop v2", requested by the user; runs alongside v1, does not r
   no LLM at all), V2_SEM (semantic only, targeted), V2_SEM_UNT (semantic only, random examples). Rounds 6. Same validation read-out
   and bootstrap as section 1; PRIMARY v2 contrast: V2_FULL vs V2_PROG (does the LLM-proposed, judge-scored layer add held-out signal
   beyond pure math features); SECONDARY: V2_SEM vs V2_SEM_UNT (targeting), V2_FULL vs v1 BOOST.
+
+A3 (2026-10-03, after V2_PROG round 1-6 on the A2 discovery data: nothing admitted, nested gain -0.039; top in-sample gains were
+task-identity API features rejected by task-grouped CV; FIXED also worse than intercept, 0.755 vs 0.704). Iteration step under section 3,
+ONE change: more discovery data. Two more thinking-ON Discovery F0 passes (CC_T1_F0_disc seeds 2, 3) are queued; when they exist, every
+Stage-1 arm (v1 and v2) is re-run as "iteration 2" on the 4 pooled discovery runs (n ~ 170 landmark trajectories), same settings.
+The iteration-1 runs on 2 discovery runs are completed and reported as they are.
