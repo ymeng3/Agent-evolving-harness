@@ -89,3 +89,10 @@ task-identity API features rejected by task-grouped CV; FIXED also worse than in
 ONE change: more discovery data. Two more thinking-ON Discovery F0 passes (CC_T1_F0_disc seeds 2, 3) are queued; when they exist, every
 Stage-1 arm (v1 and v2) is re-run as "iteration 2" on the 4 pooled discovery runs (n ~ 170 landmark trajectories), same settings.
 The iteration-1 runs on 2 discovery runs are completed and reported as they are.
+
+A4 (2026-10-03, after V2_FULL iteration-1 round 1: 3 semantic criteria judged (vote agreement 0.87-0.95), nothing admitted, nested gain
+-0.039 again). Diagnosis: the per-app / per-API count features encode task TYPE, dominate in-sample gain (5.4 vs < 1 for every behaviour
+feature or criterion) and make the in-fold argmax unstable (the top one was picked in 6/15 folds; alone it has nested gain +0.097, the
+pool -0.039), so no behaviour or semantic dimension can ever be selected. Iteration 2b, ONE change vs iteration 1, same data: the
+programmatic pool keeps only the 22 behaviour features (no per-app / per-API counts): arms V2_FULL_B and V2_PROG_B. V2_FULL iteration 1
+was stopped after round 1 and is reported as is. V2_SEM and V2_SEM_UNT (no programmatic pool, unaffected) run as iteration 1.

@@ -61,13 +61,15 @@ def vocab(recs, min_frac=0.05):
     return sorted(a for a, v in app_c.items() if v >= k), sorted(x for x, v in api_c.items() if v >= k)
 
 
-def pool(recs, L, voc):
-    """-> (names, descriptions, matrix n x m). Counts are log1p-transformed; rates kept as is."""
+def pool(recs, L, voc, behavior_only=False):
+    """-> (names, descriptions, matrix n x m). Counts are log1p-transformed; rates kept as is.
+    behavior_only drops the per-app / per-API counts, which encode WHICH task it is rather than how the agent behaves (prereg A4)."""
     apps, apis = voc; rows = []
     for r in recs:
         f = base_feats(r["cells"], L); cs = [x for c in r["cells"] for x in _calls(c["code"])]
-        for a in apps: f[f"app_{a}"] = sum(1 for aa, x in cs if aa == a and x not in AUTH)
-        for x in apis: f[f"api_{x}"] = sum(1 for aa, xx in cs if xx == x and aa not in META_APPS)
+        if not behavior_only:
+            for a in apps: f[f"app_{a}"] = sum(1 for aa, x in cs if aa == a and x not in AUTH)
+            for x in apis: f[f"api_{x}"] = sum(1 for aa, xx in cs if xx == x and aa not in META_APPS)
         rows.append(f)
     names = list(rows[0].keys()) if rows else []
     desc = {**BASE_DESC, **{f"app_{a}": f"task API calls to the {a} app" for a in apps}, **{f"api_{x}": f"calls to the {x} API" for x in apis}}

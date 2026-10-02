@@ -62,12 +62,12 @@ def main():
     ap = argparse.ArgumentParser(); ap.add_argument("--arm", required=True, choices=["V2_FULL", "V2_PROG", "V2_SEM", "V2_SEM_UNT"])
     ap.add_argument("--disc", required=True); ap.add_argument("--instr", required=True); ap.add_argument("--out", required=True)
     ap.add_argument("--rounds", type=int, default=6); ap.add_argument("--P", type=int, default=3); ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--judge-workers", type=int, default=12); a = ap.parse_args()
-    od = os.path.join(a.out, a.arm); os.makedirs(od, exist_ok=True)
+    ap.add_argument("--judge-workers", type=int, default=12); ap.add_argument("--behavior-only", action="store_true"); a = ap.parse_args()
+    od = os.path.join(a.out, a.arm + ("_B" if a.behavior_only else "")); os.makedirs(od, exist_ok=True)
     rd = [r for r in C.load_runs(a.disc.split(",")) if r["at_risk"]]; y = np.array([r["y"] for r in rd], float); groups = [r["task"] for r in rd]
     instr = json.load(open(a.instr)); assert all(r["task"] in instr for r in rd), "missing instructions"
     use_prog, use_sem = a.arm in ("V2_FULL", "V2_PROG"), a.arm != "V2_PROG"
-    voc = FT.vocab(rd); pnames, pdesc, PM = FT.pool(rd, C.L, voc)
+    voc = FT.vocab(rd); pnames, pdesc, PM = FT.pool(rd, C.L, voc, behavior_only=a.behavior_only)
     keep = PM.std(0) > 1e-9; pnames = [n for n, k in zip(pnames, keep) if k]; pdesc = [d for d, k in zip(pdesc, keep) if k]; PM = PM[:, keep]
     print(f"{a.arm}: n={len(rd)} wins={int(y.sum())} prog_pool={len(pnames) if use_prog else 0} L={C.L}", flush=True)
     J = JG.Judge(os.path.join(a.out, "judge_cache"), a.judge_workers) if use_sem else None
@@ -76,7 +76,7 @@ def main():
     if use_prog: cands += [{"kind": "prog", "name": n, "desc": d, "values": PM[:, i].tolist(), "round": 0} for i, (n, d) in enumerate(zip(pnames, pdesc))]
     adm, rounds = [], []
     def save():
-        json.dump({"arm": a.arm, "L": C.L, "seed": a.seed, "disc": a.disc, "vocab": voc, "min_gain": MIN_GAIN, "admitted": adm, "rounds": rounds,
+        json.dump({"arm": a.arm, "behavior_only": a.behavior_only, "L": C.L, "seed": a.seed, "disc": a.disc, "vocab": voc, "min_gain": MIN_GAIN, "admitted": adm, "rounds": rounds,
                    "sem_bank": [c for c in cands if c["kind"] == "sem"], "judge_stats": J.stats if J else None}, open(os.path.join(od, "state.json"), "w"), indent=1)
     for rnd in range(1, a.rounds + 1):
         t0 = time.time(); F = np.array([d["values"] for d in adm], float).T if adm else np.zeros((len(rd), 0))
