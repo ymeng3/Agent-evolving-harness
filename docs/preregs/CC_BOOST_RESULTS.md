@@ -102,4 +102,8 @@ Seed 2 of both pending (runs on vLLM with MTP spec decode from 2026-10-04 05:13;
 normal). Most likely run-to-run sampling noise is larger than assumed: same-config val runs H2 0.84 / 0.82 / 0.72 (mean 0.793), H1
 0.64 / 0.72 → per-run SD ≈ 7pp. H2ctl is counted as a third H2 run. Consequences: H1.1 is not shown to hurt (−6pp vs H2ctl, n.s.);
 E_ANSCHK's +22pp was against the lower H1 run (vs H1 mean 0.68: ≈ +18pp), seed 2 pending. Key contrasts need ≥ 2–3 runs per arm.
+Why H2ctl is lower: the extra losses are almost all "non-null answer on an action task" (H2 runs: 2, 3, **7** such losses; budget
+2–3 and other 3–5 are stable). complete_task-spec reading is unchanged (18, 15, 18 / 50); all 7 ctl losses of this kind never read the
+spec (answers: confirmation sentences or the order id 3146). So most of the ~7pp run-to-run variance of H2 comes from one stochastic
+failure mode — exactly the D10 target. Expected side effect of the R3 answer gate: higher mean AND lower variance.
 E_ANSCHK s2, E_ANSGEN s2, H1.1origP s2, E_R3, E_R3ans: pending.
