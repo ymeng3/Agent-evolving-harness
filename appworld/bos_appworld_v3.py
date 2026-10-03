@@ -34,6 +34,27 @@ def extract_code(resp):
         m = re.search(r"```(?:python)?[ \t]*\n(.*)$", resp, re.S)
         if m: return m.group(1).strip()
     return ""
+# 2026-10-03 HARNESS_V2 (diagnosis of 93 failed discovery attempts: silent fallback / truncated / placeholder code cost up to 21 cells per
+# episode; win rate 0.57 -> 0.00 as such cells go 0 -> 6+). Opt-in so the old baseline stays reproducible.
+HARNESS_V2 = os.environ.get("BOS_HARNESS_V2", "0") == "1"; FREE_RETRIES_STEP, FREE_RETRIES_EP = 3, 12
+def extract_code_v2(resp):
+    """the LAST closed ```python block (the final answer comes after any reasoning drafts); else the last closed ``` block; else the
+    text after a final unclosed fence (usually truncated, so validate_code will reject it unless it happens to be complete)."""
+    for pat in (r"```python[ \t]*\n(.*?)```", r"```[a-z]*[ \t]*\n(.*?)```"):
+        blocks = re.findall(pat, resp, re.S)
+        if blocks: return blocks[-1].strip()
+    if resp.count("```") % 2 == 1:
+        m = re.search(r"```(?:python)?[ \t]*\n((?:(?!```).)*)$", resp, re.S)
+        if m: return m.group(1).strip()
+    return ""
+def validate_code(code):
+    """-> reason string if the code must not be executed, else ''."""
+    if not code.strip(): return "your reply contained no ```python code block"
+    try: tree = _ast.parse(code)
+    except SyntaxError as e: return f"the code block is incomplete or not valid Python (SyntaxError: {e.msg}, line {e.lineno}); the reply was probably cut off"
+    if any(isinstance(n, _ast.Constant) and n.value is Ellipsis for n in _ast.walk(tree)): return "the code contains a '...' placeholder instead of real values"
+    return ""
+def out_cap(code): return 8000 if (HARNESS_V2 and "api_docs" in code) else 3000   # full API lists were cut at 3000 chars and re-listed 1-6 times
 _PLAY = None; _TASKS = None
 def _call(i):
     try: return _PLAY(i)
@@ -81,7 +102,7 @@ def run_eval(patch_path, seed, tag, n_games=None, workers=4):
     fp, pa, rp, mu, cf = (hooks.get(k) for k in ("format_prompt", "parse_action", "retry_policy", "memory_update", "choose_fallback"))
     H = int(hooks.get("HISTORY_LENGTH", 20)); T = float(hooks.get("TEMPERATURE", 0.4)); tasks = TASKS[: (n_games or 10**9)]
     def play(i):
-        bb = A.Backbone(T); tid = tasks[i]; state = {}; traj = []; steps = 0; success = False; gp = gf = 0; pre = REPLAY.get(tid) or []
+        bb = A.Backbone(T); tid = tasks[i]; state = {}; traj = []; free_used = [0]; steps = 0; success = False; gp = gf = 0; pre = REPLAY.get(tid) or []
         if HINTS.get(tid): state['_hint'] = HINTS[tid]
         with AppWorld(task_id=tid, experiment_name=f"line3_{tag}_s{seed}", random_seed=seed) as world:
             base = demo_messages(world.task.supervisor)
@@ -133,9 +154,25 @@ def run_eval(patch_path, seed, tag, n_games=None, workers=4):
                     resp = (r.choices[0].message.content or ""); bb.tok[0] += r.usage.prompt_tokens; bb.tok[1] += r.usage.completion_tokens; bb.calls += 1
                 else:
                     bb.errors += 1; si["api_error"] = str(last)[:80]
-                try: code = pa(resp, [], state) if pa else extract_code(resp)
-                except Exception: code = extract_code(resp)
-                si["parse_chg"] = int(bool(pa) and code != extract_code(resp)); si["a0"] = extract_code(resp)[:80]; si["a0_adm"] = int(bool(extract_code(resp))); si["unclosed"] = int(resp.count("```") % 2 == 1)
+                ex_ = extract_code_v2 if HARNESS_V2 else extract_code
+                try: code = pa(resp, [], state) if pa else ex_(resp)
+                except Exception: code = ex_(resp)
+                si["parse_chg"] = int(bool(pa) and code != ex_(resp)); si["a0"] = ex_(resp)[:80]; si["a0_adm"] = int(bool(ex_(resp))); si["unclosed"] = int(resp.count("```") % 2 == 1)
+                if HARNESS_V2:   # never execute a missing / truncated / placeholder block: say why and ask again, without spending a cell
+                    why = validate_code(code); n_free = 0
+                    while why and n_free < FREE_RETRIES_STEP and free_used[0] < FREE_RETRIES_EP:
+                        n_free += 1; free_used[0] += 1
+                        fb_msg = (f"Nothing was executed: {why}. Your variables and all app state are unchanged and this did not use up a step. "
+                                  f"Reply with ONE complete ```python code block now (keep any reasoning short).")
+                        try:
+                            r2 = bb.client.chat.completions.create(model=A.MODEL, messages=msgs + [{"role": "assistant", "content": resp[-4000:] or "(empty reply)"}, {"role": "user", "content": fb_msg}],
+                                                                   temperature=T, max_tokens=int(os.environ.get("BOS_MAX_TOKENS", "1024")), n=1, extra_body=bb.extra, **bb.sampling)
+                            resp = r2.choices[0].message.content or ""; bb.tok[0] += r2.usage.prompt_tokens; bb.tok[1] += r2.usage.completion_tokens; bb.calls += 1
+                        except Exception as e:
+                            si["api_error"] = str(e)[:80]; break
+                        code = ex_(resp); why = validate_code(code)
+                    si["free_retries"] = n_free
+                    if why: code = ""; si["invalid_code"] = why[:80]
                 attempt = 0
                 while rp and not code and attempt < 2:
                     attempt += 1
@@ -154,6 +191,13 @@ def run_eval(patch_path, seed, tag, n_games=None, workers=4):
                 if not code and cf:
                     try: code = cf([], state) or ""; si["fb"] = int(bool(code))
                     except Exception: pass
+                if not code and HARNESS_V2:   # free retries exhausted: spend the step, execute nothing, and say so
+                    out = f"Nothing was executed this step: {si.get('invalid_code', 'no valid code block')}. Variables and app state are unchanged."
+                    err = True; si["no_exec"] = 1
+                    ev = world.evaluate().to_dict(); gp = sum(1 for x in ev["passes"] if x.get("label") == "no_op_fail"); gf = sum(1 for x in ev["failures"] if x.get("label") == "no_op_fail"); sf = sum(1 for x in ev["failures"] if x.get("label") == "no_op_pass")
+                    traj.append({"step": step, "code": "", "resp": resp[-600:], "out": out[:200], "exec_error": 1, "gp": gp, "gf": gf, "harm_fail": sf, **si})
+                    hist.append((resp[-4000:] or "(empty reply)", "Output:\n```\n" + out + "\n```")); steps += 1
+                    continue
                 if not code: code = "print(apis.api_docs.show_app_descriptions())"; si["default_code"] = 1
                 if V3:
                     for eid, f in V3["post_parse"]:
@@ -176,7 +220,7 @@ def run_eval(patch_path, seed, tag, n_games=None, workers=4):
                         except Exception as e: si.setdefault("edit_err", []).append(f"{eid}:post_exec:{str(e)[:40]}")
                 ev = world.evaluate().to_dict(); gp = sum(1 for x in ev["passes"] if x.get("label") == "no_op_fail"); gf = sum(1 for x in ev["failures"] if x.get("label") == "no_op_fail"); sf = sum(1 for x in ev["failures"] if x.get("label") == "no_op_pass")
                 traj.append({"step": step, "code": code, "resp": resp[-600:], "out": out[:200], "exec_error": int(err), "gp": gp, "gf": gf, "harm_fail": sf, **si})
-                hist.append((resp if resp else "```python\n" + code + "\n```", "Output:\n```\n" + out[:3000] + "\n```")); steps += 1
+                hist.append((resp if resp else "```python\n" + code + "\n```", "Output:\n```\n" + out[:out_cap(code)] + "\n```")); steps += 1
                 if world.task_completed(): break
             ev = world.evaluate().to_dict(); success = bool(ev.get("success")); gp = sum(1 for x in ev["passes"] if x.get("label") == "no_op_fail"); gf = sum(1 for x in ev["failures"] if x.get("label") == "no_op_fail"); sf = sum(1 for x in ev["failures"] if x.get("label") == "no_op_pass")
         return i, {"bb": [bb.calls, bb.errors, bb.tok[0], bb.tok[1]], "task": tid, "won": success, "G": (gp / (gp + gf) if gp + gf else None), "harm_fail": sf, "steps": steps, "traj": traj}
@@ -186,7 +230,7 @@ def run_eval(patch_path, seed, tag, n_games=None, workers=4):
     class _B: pass
     bb = _B(); bb.calls = sum(r['bb'][0] for r in results); bb.errors = sum(r['bb'][1] for r in results); bb.tok = [sum(r['bb'][2] for r in results), sum(r['bb'][3] for r in results)]
     G = [r["G"] for r in results if r["G"] is not None]
-    res = {"tag": tag, "patch": patch_path, "seed": seed, "model": A.MODEL, "history_length": H, "temperature": T, "parse_unclosed": PARSE_UNCLOSED, "backbone_extra": A.Backbone(T).extra, "n_games": len(tasks), "success_rate": sum(r["won"] for r in results) / len(tasks), "mean_G": sum(G) / max(len(G), 1),
+    res = {"tag": tag, "patch": patch_path, "seed": seed, "model": A.MODEL, "history_length": H, "temperature": T, "parse_unclosed": PARSE_UNCLOSED, "harness_v2": HARNESS_V2, "max_tokens": int(os.environ.get("BOS_MAX_TOKENS", "1024")), "backbone_extra": A.Backbone(T).extra, "n_games": len(tasks), "success_rate": sum(r["won"] for r in results) / len(tasks), "mean_G": sum(G) / max(len(G), 1),
            "won": [r["won"] for r in results], "G": [r["G"] for r in results], "harm_fail": [r["harm_fail"] for r in results], "games": [r["task"] for r in results], "steps": [r["steps"] for r in results], "crashed": [r.get("crashed") for r in results], "traj": [r["traj"] for r in results],
            "calls": bb.calls, "api_errors": bb.errors, "tokens_in": bb.tok[0], "tokens_out": bb.tok[1], "finished": time.strftime("%Y-%m-%d %H:%M")}
     os.makedirs(f"{OUT}/results", exist_ok=True); json.dump(res, open(f"{OUT}/results/{tag}_seed{seed}.json", "w"))

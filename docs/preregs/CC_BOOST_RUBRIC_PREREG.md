@@ -128,3 +128,16 @@ reported). The PW-vs-pooled secondary uses V2_SEM and V2_PROG_B.
 Data (continuation of A3, more runs of the same kind): queue 2 more thinking-ON Discovery F0 passes (CC_T1_F0_disc seeds 4, 5) and 2
 more Validation passes (CC_T1_F0_val seeds 3, 4), after the already-queued val s2 and disc s2, s3. The state file records which
 Discovery runs a PW_* arm used; validation pairs come from all CC_T1_F0_val seeds that exist at read-out time (also recorded).
+
+A7 (2026-10-03, before any run it governs; after the strong-model failure diagnosis docs/design/diagnosis_2026-10-03/TAXONOMY.md).
+Stage-1 status: every rubric-learning arm (v1, v2, PW; iterations 1, 2, 2b) is null or negative on validation. New track, at the user's
+request, in three steps: (1) fix harness bugs found by the diagnosis -> new baseline F0'; (2) rubric dimensions designed from the
+diagnosed error classes, validated on logs (fire more on failures; within-task; holds on validation); (3) rubric-triggered prompt
+interventions, evaluated on validation against F0'.
+Step 1 = BOS_HARNESS_V2=1 (bos_appworld_v3.py): take the LAST closed code block; never execute a missing / syntactically incomplete /
+'...'-placeholder block — tell the model why and re-ask, up to 3 free retries per step and 12 per episode (free = no cell spent); when
+exhausted, spend the step executing nothing and say so (no silent show_app_descriptions fallback); api_docs outputs kept to 8000 chars
+in history (was 3000); BOS_MAX_TOKENS=3072 (was 1024). F0' = CC_V2_F0_disc seeds 1, 2 and CC_V2_F0_val seeds 1, 2 (thinking ON).
+Read-out: F0' vs the existing thinking-ON F0 on the same task sets (disc: 6 seeds, val: 4 seeds), task-level paired difference and
+sign-flip test; descriptive counts of free retries, no-exec steps, docs share, completion rate. This is a base-harness change, not a
+rubric claim; every step-3 intervention is compared against F0', never against the old F0.
