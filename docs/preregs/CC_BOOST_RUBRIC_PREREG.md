@@ -141,3 +141,17 @@ in history (was 3000); BOS_MAX_TOKENS=3072 (was 1024). F0' = CC_V2_F0_disc seeds
 Read-out: F0' vs the existing thinking-ON F0 on the same task sets (disc: 6 seeds, val: 4 seeds), task-level paired difference and
 sign-flip test; descriptive counts of free retries, no-exec steps, docs share, completion rate. This is a base-harness change, not a
 rubric claim; every step-3 intervention is compared against F0', never against the old F0.
+
+A8 (2026-10-03, before any step-3 run). Step-2 result (appworld/boost/rubric_check.py, docs/design/diagnosis_2026-10-03/rubric_check_step2.json):
+diagnosis-designed online detectors fire more on failures on BOTH discovery (6 runs) and validation (4 runs, new families): docs_repeat
++0.30 / +0.40 (within-task +0.39 val), harness artifact +0.24 / +0.24, supervisor detour +0.21 / +0.11, no-code streak +0.12 / +0.09,
+api misuse +0.11 / +0.04, per-item +0.10 / +0.05; docs_heavy fires on ~98% of episodes.
+STEP 3 design. Base = HARNESS_V2 (A7), thinking ON, BOS_MAX_TOKENS=3072. Arms (v3 patches, appworld/patches_ccdiag/):
+  E_RUBRIC = RUBRIC_NUDGES_v1: six edits, each triggered ONLINE by one validated rubric detector (D1 docs share, D8 docs repeat, D2 per-item,
+             D4 api misuse, D6 supervisor detour, D7 budget), injecting a short targeted [harness note] into that step's prompt only.
+  E_GENERIC = GENERIC_ADVICE_v1: the same advice content appended at EVERY step, not triggered (tests whether rubric-triggered timing matters).
+Evaluation on VALIDATION seeds 1, 2 (tasks_challenge_val50), paired by task with F0' = CC_V2_F0_val seeds 1, 2.
+PRIMARY: E_RUBRIC - F0' success, per-task mean over the 2 seeds, task-level sign-flip test (two-sided) and 90% bootstrap CI.
+SECONDARY: E_RUBRIC - E_GENERIC (same test); E_GENERIC - F0'. Manipulation checks: per-step prompt-changed rate, docs share of cells,
+per-item rate, completion (complete_task called) rate, mean cells used. Discovery is in-sample for the design (it produced the diagnosis),
+so it is not used for any step-3 claim.
