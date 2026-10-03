@@ -95,4 +95,11 @@ Clean test (D10 frozen before any val data, A15). Only 6 of the +11 wins are dir
 Targeting contrast (MATH §5): no difference. Consistent with §5: targeting only adds value where the advice harms non-trigger states
 (c(σ) < 0); "answer only if asked" does not hurt question tasks, so always-on advice recovers the same failures.
 Seed 2 of both pending (runs on vLLM with MTP spec decode from 2026-10-04 05:13; lossless, logged in queue history).
-H1.1origP, E_R3, E_R3ans: pending.
+| H1.1origP | val | 1 | 0.66 | 0.90 | 0.505 | vs H2ctl −6pp [−16, +4], p=0.51 |
+| H2ctl (H2 config re-run, same seed number, after server restart) | val | 1 | 0.72 | 0.96 | 0.476 | vs the two earlier H2 runs −11pp, p=0.044 |
+
+**A20 resolution:** no server fault found (GPU only used by our vLLM, same vLLM config; val jobs take ~3100 s, the 3088 s of H2ctl is
+normal). Most likely run-to-run sampling noise is larger than assumed: same-config val runs H2 0.84 / 0.82 / 0.72 (mean 0.793), H1
+0.64 / 0.72 → per-run SD ≈ 7pp. H2ctl is counted as a third H2 run. Consequences: H1.1 is not shown to hurt (−6pp vs H2ctl, n.s.);
+E_ANSCHK's +22pp was against the lower H1 run (vs H1 mean 0.68: ≈ +18pp), seed 2 pending. Key contrasts need ≥ 2–3 runs per arm.
+E_ANSCHK s2, E_ANSGEN s2, H1.1origP s2, E_R3, E_R3ans: pending.
