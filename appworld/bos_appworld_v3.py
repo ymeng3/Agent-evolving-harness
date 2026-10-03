@@ -76,6 +76,9 @@ def api_index(app_name):
         try: sig = api_sig(app_name, a["name"])
         except Exception: sig = app_name + "." + a["name"] + "(?)"
         print(sig + "  # " + a["description"][:70])
+for _o in (apis, apis.api_docs):   # the model also writes apis.api_index(...) / apis.api_docs.api_index(...)
+    try: setattr(_o, "api_index", api_index); setattr(_o, "api_sig", api_sig)
+    except Exception: pass
 '''
 _RO = re.compile(r"^(show|search|get|list)_")
 def readonly(code):
