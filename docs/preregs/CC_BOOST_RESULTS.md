@@ -69,10 +69,13 @@ completion 0.98): the disc gain is from the harness mechanics, not from the prom
 So V2's budget exhaustion was mostly induced by the evaluate() rollback, not by docs overhead. Isolating the rollback fix: V2noEval queued.
 | H1 | val | 1 | 0.64 | 1.00 | 0.156 | vs V2 +6.0pp [-4, +17], p=0.46, tasks 10 better / 7 worse (1 seed) |
 | H1origP | disc | 1 | 0.82 | 0.98 | 0.510 | vs H1 −1pp, p=1.0 (H1 harness + original prompt) |
+| H1origP | val | 1 | **0.84** | 0.94 | 0.505 | vs H1 **+16pp [+6, +26], p=0.015**; vs V2 +26pp, p<0.001 |
 | H1 | val | 1–2 | 0.68 | 1.00 | 0.155 | vs V2 +10.0pp [0.0, +21], p=0.15, tasks 11 better / 5 worse; vs F0old +26.5pp, p<0.001 (2 seeds) |
 
 H1 val: every episode completes; all 18 losses are "completed but wrong". In the H1 val s1 log (baseline, before any D10 arm runs),
 the frozen D10 detector (A15) would fire on 9/18 losses and 0/32 wins; 3 more losses pass an order id / sentence on action tasks that
 D10's question-cue rule misclassifies as questions ("who/what/which" in relative clauses; a "?" inside a quoted note). D10 is NOT
 changed (that would tune on validation); the refined cue rule is recorded as a candidate for a later, fresh test (A16).
-Step-3 arms, D10 arms, H1origP ablation: pending.
+**A18:** the H1 prompt rewrite HURTS on val: it removed "always look at API specs", so the agent never reads complete_task's spec
+(0/50 vs 18–24/50), which states that action tasks take no answer → id/sentence answers on 9–12 losses vs 2. New base H2 = H1 harness +
+original prompt. D10 arms (on H1), H2 seed 2, H1.1 on original prompt, V2noEval: pending.

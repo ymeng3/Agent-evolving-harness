@@ -227,3 +227,13 @@ the prompt rewrite only shortens episodes (22 -> 13 cells). This corrects the ea
 V2's budget exhaustion was mostly induced by the evaluate() rollback (writes undone -> re-dos), not by docs overhead.
 Second ablation: CC_V2noEval_{disc,val} seed 1 = V2 + only the no-mid-episode-evaluate fix (BOS_NO_EVAL=1; no helpers, debounce, hints,
 stamp; original prompt). Contrast V2noEval - V2 = the rollback fix; H1origP - V2noEval = debounce + signature hints + stamp + (unmentioned) helpers.
+
+A18 (2026-10-04). H1origP val s1 = 0.84 vs H1 (H1 prompt) 0.68 (2 seeds): H1 - H1origP = -16pp [-26, -6], p=0.015 (tasks 3 better / 13
+worse). Mechanism: the official complete_task spec says "Pass [answer] if and only if the task requests an answer ... If the task is not
+a question ... the answer must be left to the default value, i.e., None". The original prompt ("Always look at API specifications before
+calling an API") makes the agent read that spec in 18-24/50 episodes; under the H1 prompt it is read in 0/50 (all three H1 runs), and
+api_index's compact signature cuts descriptions to 70 chars. Id/sentence answers on losses: H1 12 and 9 vs H1origP 2 vs V2 1. So the
+prompt rewrite removed an information-gathering step whose value was invisible to the step-economy view (cf. LOOP: RL increases doc reads).
+Decisions: new base H2 := H1 harness + original prompt (CC_H1origP); seed 2 on disc and val queued. H1.1 re-based on the original prompt
+(CC_H11origP_val s1, s2; not yet run). D10 arms stay on H1 (high base rate of the error = high power for the targeting test, MATH §5).
+Cancelled (never run): H1 RUBRIC / GENERIC / GROUNDED / B45 (base superseded; lambda ~ 0).
