@@ -54,7 +54,34 @@ def validate_code(code):
     except SyntaxError as e: return f"the code block is incomplete or not valid Python (SyntaxError: {e.msg}, line {e.lineno}); the reply was probably cut off"
     if any(isinstance(n, _ast.Constant) and n.value is Ellipsis for n in _ast.walk(tree)): return "the code contains a '...' placeholder instead of real values"
     return ""
-def out_cap(code): return 8000 if (HARNESS_V2 and "api_docs" in code) else 3000   # full API lists were cut at 3000 chars and re-listed 1-6 times
+def out_cap(code): return 8000 if (HARNESS_V2 and ("api_docs" in code or "api_index" in code)) else 3000   # full API lists were cut at 3000 chars and re-listed 1-6 times
+# 2026-10-03 HARNESS_H1 = standard base harness (implies V2): no mid-episode world.evaluate() (it rolled back writes: replaying the same
+# code, a read-back after update_alarm showed the old value and the task scored 0/7 instead of 6/7); api_index/api_sig helpers; step
+# counter after every output; read-only duplicate cells blocked (free re-ask); parameter errors answered with the API's signature.
+# Use with BOS_AW_INSTR=appworld/prompts/instructions_h1.txt (doc / chunking rules rewritten, budget stated).
+HARNESS_H1 = os.environ.get("BOS_HARNESS_H1", "0") == "1"; HARNESS_V2 = HARNESS_V2 or HARNESS_H1
+H1_SETUP = '''
+def api_sig(app_name, api_name):
+    d = apis.api_docs.show_api_doc(app_name=app_name, api_name=api_name)
+    ps = []
+    for p in d.get("parameters", []):
+        s = p["name"] + ":" + str(p.get("type", ""))
+        if p.get("required"): s += "*"
+        elif p.get("default") not in (None, "", [], {}) and len(repr(p.get("default"))) < 16: s += "=" + repr(p.get("default"))
+        ps.append(s)
+    return app_name + "." + api_name + "(" + ", ".join(ps) + ")"
+def api_index(app_name):
+    """print a compact signature for every API of an app (* = required parameter)."""
+    for a in apis.api_docs.show_api_descriptions(app_name=app_name):
+        try: sig = api_sig(app_name, a["name"])
+        except Exception: sig = app_name + "." + a["name"] + "(?)"
+        print(sig + "  # " + a["description"][:70])
+'''
+_RO = re.compile(r"^(show|search|get|list)_")
+def readonly(code):
+    calls = re.findall(r"apis\.([a-z_]+)\.([a-z_]+)\s*\(", code)
+    return all(a == "api_docs" or _RO.match(f) for a, f in calls)
+_PARAM_ERR = re.compile(r"Unexpected parameter|Missing required|missing \d+ required|got an unexpected keyword|No API named", re.I)
 _PLAY = None; _TASKS = None
 def _call(i):
     try: return _PLAY(i)
@@ -102,14 +129,24 @@ def run_eval(patch_path, seed, tag, n_games=None, workers=4):
     fp, pa, rp, mu, cf = (hooks.get(k) for k in ("format_prompt", "parse_action", "retry_policy", "memory_update", "choose_fallback"))
     H = int(hooks.get("HISTORY_LENGTH", 20)); T = float(hooks.get("TEMPERATURE", 0.4)); tasks = TASKS[: (n_games or 10**9)]
     def play(i):
-        bb = A.Backbone(T); tid = tasks[i]; state = {}; traj = []; free_used = [0]; steps = 0; success = False; gp = gf = 0; pre = REPLAY.get(tid) or []
+        bb = A.Backbone(T); tid = tasks[i]; state = {}; traj = []; free_used = [0]; done_codes = []; steps = 0; success = False; gp = gf = 0; pre = REPLAY.get(tid) or []
+        def dup_reason(code):   # H1 debounce: an API-reading cell identical to an earlier one, with no state-changing cell since, adds nothing
+            if not HARNESS_H1 or not readonly(code) or not (re.search(r"apis\.[a-z_]+\.[a-z_]+\s*\(", code) or "api_index" in code): return ""
+            key = " ".join(code.split())
+            for k in range(len(done_codes) - 1, -1, -1):
+                if done_codes[k][0] == key:
+                    if all(ro for _, ro in done_codes[k + 1:]):
+                        return f"this code is identical to step {k}, whose output is already shown above, and nothing has changed since; re-running it gives nothing new"
+                    break
+            return ""
+        def stamp(k): return f"\n[{k + 1} of {MAX_STEPS} steps used]" if HARNESS_H1 else ""
         if HINTS.get(tid): state['_hint'] = HINTS[tid]
         with AppWorld(task_id=tid, experiment_name=f"line3_{tag}_s{seed}", random_seed=seed) as world:
             base = demo_messages(world.task.supervisor)
             # the demo ends with the example task; replace the last USER turn's task line with the real task
             task_msg = f"My name is: {world.task.supervisor.first_name} {world.task.supervisor.last_name}. My personal email is {world.task.supervisor.email} and phone number is {world.task.supervisor.phone_number}.\nTask: {world.task.instruction}"
             hist = []   # list of (assistant_text, user_output)
-            setup_codes = [str(hooks["SETUP_CODE"])] if hooks.get("SETUP_CODE") else []
+            setup_codes = ([H1_SETUP] if HARNESS_H1 else []) + ([str(hooks["SETUP_CODE"])] if hooks.get("SETUP_CODE") else [])
             for eid, f in (V3["setup"] if V3 else []):   # 2026-10-03: a raising setup hook used to crash every task of the pass
                 try: sc = f(); setup_codes += [sc] if isinstance(sc, str) and sc.strip() else []
                 except Exception as e: state.setdefault("_edit_err", []).append(f"{eid}:setup:{str(e)[:40]}")
@@ -159,7 +196,7 @@ def run_eval(patch_path, seed, tag, n_games=None, workers=4):
                 except Exception: code = ex_(resp)
                 si["parse_chg"] = int(bool(pa) and code != ex_(resp)); si["a0"] = ex_(resp)[:80]; si["a0_adm"] = int(bool(ex_(resp))); si["unclosed"] = int(resp.count("```") % 2 == 1)
                 if HARNESS_V2:   # never execute a missing / truncated / placeholder block: say why and ask again, without spending a cell
-                    why = validate_code(code); n_free = 0
+                    why = validate_code(code) or dup_reason(code); n_free = 0
                     while why and n_free < FREE_RETRIES_STEP and free_used[0] < FREE_RETRIES_EP:
                         n_free += 1; free_used[0] += 1
                         fb_msg = (f"Nothing was executed: {why}. Your variables and all app state are unchanged and this did not use up a step. "
@@ -170,7 +207,7 @@ def run_eval(patch_path, seed, tag, n_games=None, workers=4):
                             resp = r2.choices[0].message.content or ""; bb.tok[0] += r2.usage.prompt_tokens; bb.tok[1] += r2.usage.completion_tokens; bb.calls += 1
                         except Exception as e:
                             si["api_error"] = str(e)[:80]; break
-                        code = ex_(resp); why = validate_code(code)
+                        code = ex_(resp); why = validate_code(code) or dup_reason(code)
                     si["free_retries"] = n_free
                     if why: code = ""; si["invalid_code"] = why[:80]
                 attempt = 0
@@ -194,9 +231,10 @@ def run_eval(patch_path, seed, tag, n_games=None, workers=4):
                 if not code and HARNESS_V2:   # free retries exhausted: spend the step, execute nothing, and say so
                     out = f"Nothing was executed this step: {si.get('invalid_code', 'no valid code block')}. Variables and app state are unchanged."
                     err = True; si["no_exec"] = 1
-                    ev = world.evaluate().to_dict(); gp = sum(1 for x in ev["passes"] if x.get("label") == "no_op_fail"); gf = sum(1 for x in ev["failures"] if x.get("label") == "no_op_fail"); sf = sum(1 for x in ev["failures"] if x.get("label") == "no_op_pass")
+                    if HARNESS_H1: gp = gf = sf = None   # no mid-episode evaluate (it rolls back writes)
+                    else: ev = world.evaluate().to_dict(); gp = sum(1 for x in ev["passes"] if x.get("label") == "no_op_fail"); gf = sum(1 for x in ev["failures"] if x.get("label") == "no_op_fail"); sf = sum(1 for x in ev["failures"] if x.get("label") == "no_op_pass")
                     traj.append({"step": step, "code": "", "resp": resp[-600:], "out": out[:200], "exec_error": 1, "gp": gp, "gf": gf, "harm_fail": sf, **si})
-                    hist.append((resp[-4000:] or "(empty reply)", "Output:\n```\n" + out + "\n```")); steps += 1
+                    hist.append((resp[-4000:] or "(empty reply)", "Output:\n```\n" + out + "\n```" + stamp(step))); steps += 1
                     continue
                 if not code: code = "print(apis.api_docs.show_app_descriptions())"; si["default_code"] = 1
                 if V3:
@@ -211,6 +249,14 @@ def run_eval(patch_path, seed, tag, n_games=None, workers=4):
                 try: out = world.execute(code)
                 except Exception as e: out = f"Execution failed. {type(e).__name__}: {str(e)[:300]}"; si["env_exc"] = 1   # 2026-10-01: e.g. an API called with `...` as an argument raises inside AppWorld's save_logs
                 err = out.startswith("Execution failed")
+                if HARNESS_H1 and err and _PARAM_ERR.search(out):   # helpful error: answer a parameter / name error with the API's real signature
+                    called = re.findall(r"apis\.([a-z_]+)\.([a-z_]+)\s*\(", code)
+                    if called:
+                        app_, api_ = called[-1]
+                        try: sig = world.execute(f"print(api_sig({app_!r}, {api_!r}))").strip()
+                        except Exception: sig = ""
+                        if sig and not sig.startswith("Execution failed"): out += f"\n[harness] Signature (* = required): {sig}"; si["sig_hint"] = 1
+                done_codes.append((" ".join(code.split()), readonly(code)))
                 try:
                     if mu: mu(state, hist[-1][1] if hist else "", code, out)
                 except Exception: pass
@@ -218,9 +264,10 @@ def run_eval(patch_path, seed, tag, n_games=None, workers=4):
                     for eid, f in V3["post_exec"]:
                         try: f(code, out, state)
                         except Exception as e: si.setdefault("edit_err", []).append(f"{eid}:post_exec:{str(e)[:40]}")
-                ev = world.evaluate().to_dict(); gp = sum(1 for x in ev["passes"] if x.get("label") == "no_op_fail"); gf = sum(1 for x in ev["failures"] if x.get("label") == "no_op_fail"); sf = sum(1 for x in ev["failures"] if x.get("label") == "no_op_pass")
+                if HARNESS_H1: gp = gf = sf = None   # no mid-episode evaluate (it rolls back writes)
+                else: ev = world.evaluate().to_dict(); gp = sum(1 for x in ev["passes"] if x.get("label") == "no_op_fail"); gf = sum(1 for x in ev["failures"] if x.get("label") == "no_op_fail"); sf = sum(1 for x in ev["failures"] if x.get("label") == "no_op_pass")
                 traj.append({"step": step, "code": code, "resp": resp[-600:], "out": out[:200], "exec_error": int(err), "gp": gp, "gf": gf, "harm_fail": sf, **si})
-                hist.append((resp if resp else "```python\n" + code + "\n```", "Output:\n```\n" + out[:out_cap(code)] + "\n```")); steps += 1
+                hist.append((resp if resp else "```python\n" + code + "\n```", "Output:\n```\n" + out[:out_cap(code)] + "\n```" + stamp(step))); steps += 1
                 if world.task_completed(): break
             ev = world.evaluate().to_dict(); success = bool(ev.get("success")); gp = sum(1 for x in ev["passes"] if x.get("label") == "no_op_fail"); gf = sum(1 for x in ev["failures"] if x.get("label") == "no_op_fail"); sf = sum(1 for x in ev["failures"] if x.get("label") == "no_op_pass")
         return i, {"bb": [bb.calls, bb.errors, bb.tok[0], bb.tok[1]], "task": tid, "won": success, "G": (gp / (gp + gf) if gp + gf else None), "harm_fail": sf, "steps": steps, "traj": traj}
@@ -230,7 +277,7 @@ def run_eval(patch_path, seed, tag, n_games=None, workers=4):
     class _B: pass
     bb = _B(); bb.calls = sum(r['bb'][0] for r in results); bb.errors = sum(r['bb'][1] for r in results); bb.tok = [sum(r['bb'][2] for r in results), sum(r['bb'][3] for r in results)]
     G = [r["G"] for r in results if r["G"] is not None]
-    res = {"tag": tag, "patch": patch_path, "seed": seed, "model": A.MODEL, "history_length": H, "temperature": T, "parse_unclosed": PARSE_UNCLOSED, "harness_v2": HARNESS_V2, "max_tokens": int(os.environ.get("BOS_MAX_TOKENS", "1024")), "backbone_extra": A.Backbone(T).extra, "n_games": len(tasks), "success_rate": sum(r["won"] for r in results) / len(tasks), "mean_G": sum(G) / max(len(G), 1),
+    res = {"tag": tag, "patch": patch_path, "seed": seed, "model": A.MODEL, "history_length": H, "temperature": T, "parse_unclosed": PARSE_UNCLOSED, "harness_v2": HARNESS_V2, "harness_h1": HARNESS_H1, "instructions": os.path.basename(os.environ.get("BOS_AW_INSTR", "")), "max_tokens": int(os.environ.get("BOS_MAX_TOKENS", "1024")), "backbone_extra": A.Backbone(T).extra, "n_games": len(tasks), "success_rate": sum(r["won"] for r in results) / len(tasks), "mean_G": sum(G) / max(len(G), 1),
            "won": [r["won"] for r in results], "G": [r["G"] for r in results], "harm_fail": [r["harm_fail"] for r in results], "games": [r["task"] for r in results], "steps": [r["steps"] for r in results], "crashed": [r.get("crashed") for r in results], "traj": [r["traj"] for r in results],
            "calls": bb.calls, "api_errors": bb.errors, "tokens_in": bb.tok[0], "tokens_out": bb.tok[1], "finished": time.strftime("%Y-%m-%d %H:%M")}
     os.makedirs(f"{OUT}/results", exist_ok=True); json.dump(res, open(f"{OUT}/results/{tag}_seed{seed}.json", "w"))

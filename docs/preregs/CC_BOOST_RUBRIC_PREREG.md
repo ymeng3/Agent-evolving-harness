@@ -155,3 +155,18 @@ PRIMARY: E_RUBRIC - F0' success, per-task mean over the 2 seeds, task-level sign
 SECONDARY: E_RUBRIC - E_GENERIC (same test); E_GENERIC - F0'. Manipulation checks: per-step prompt-changed rate, docs share of cells,
 per-item rate, completion (complete_task called) rate, mean cells used. Discovery is in-sample for the design (it produced the diagnosis),
 so it is not used for any step-3 claim.
+
+A9 (2026-10-03, before any H1 run; user chose "option B": build a standard base harness first, step-3 RUBRIC/GENERIC val runs cancelled).
+ISOLATION AUDIT RESULT: the harness called world.evaluate() after EVERY step (to log per-step goal checks). Replaying the logged code of
+9126bf0 in a fresh world: with per-step evaluate the read-back after a successful update_alarm returns the OLD value and the task scores
+0/7; without it the read-back is correct and the same code scores 6/7. Replaying all 50 CC_F0_fix_seed1 trajectories (actions held fixed):
+26/50 with per-step evaluate (= logged), 28/50 without (7574325, 9126bf0 flip) — a lower bound, since the agent also wastes cells reacting to
+stale reads (e52623a, 09ac073). All earlier AppWorld numbers in this project (and the collaborator's) carry this artifact.
+H1 = BOS_HARNESS_H1=1 (implies V2) + BOS_AW_INSTR=appworld/prompts/instructions_h1.txt, each element a standard practice: no mid-episode
+evaluate (final evaluate only); api_index(app) / api_sig(app, api) helpers in the sandbox (compact signatures, just-in-time docs); the
+step count shown after every output; read-only duplicate cells blocked as free re-asks (debounce, only when no state-changing cell ran since);
+parameter / unknown-API errors answered with the API's real signature (helpful errors); prompt rules rewritten (look up specs when unsure,
+several per step allowed, batch repeated work in loops, 30-step budget stated). F0_H1 = CC_H1_F0_disc seeds 1, 2 and CC_H1_F0_val seeds 1, 2.
+Read-out: F0_H1 vs F0' (V2) vs old F0 on the same tasks (per-task mean over seeds, sign-flip, bootstrap), plus docs share, completion
+rate, cells used, blocked duplicates, signature hints. Step 3 (rubric-triggered nudges vs generic) is then re-run on top of H1, with the
+nudges that H1 already covers (duplicate docs, budget display) removed from RUBRIC_NUDGES so they are not counted twice.
