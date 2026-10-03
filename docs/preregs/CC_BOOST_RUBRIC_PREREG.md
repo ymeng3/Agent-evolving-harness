@@ -256,3 +256,8 @@ result was produced under MTP; the job running then was killed and requeued). Wo
 losses up in every class (answer 6, budget 5, other 6) and no API errors -- not the pattern expected from a truncation marker. Because
 the server state also changed (restart, 12 workers), a control CC_H2ctl_val s1 (identical H2 config, current server, 8 workers) runs
 next. If H2ctl ~ 0.83 -> the H1.1 marker itself hurts; if ~ 0.66 -> server-side change, and H11origP s1 is invalid.
+
+A21 (2026-10-04, before it runs). E_H2_ANSCHK = H2 (H1 harness + original prompt) + the FROZEN D10 patch ANSWER_CHECK_H1 (unchanged since
+A15; clean, not val-informed), validation seeds 1, 2. Primary: E_H2_ANSCHK - H2 (3 runs: 0.84, 0.82, 0.72). Motivation: in H2 the main
+residual and the main source of run-to-run variance is the D10 class (2, 3, 7 losses per run). Prediction: mean up ~+5-8pp and lower
+variance across runs. Queued ahead of E_R3 / E_R3ans (which use the val-informed refined cue rule on H1.1) and H1.1origP s2.
