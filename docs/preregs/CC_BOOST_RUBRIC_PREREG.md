@@ -170,3 +170,9 @@ several per step allowed, batch repeated work in loops, 30-step budget stated). 
 Read-out: F0_H1 vs F0' (V2) vs old F0 on the same tasks (per-task mean over seeds, sign-flip, bootstrap), plus docs share, completion
 rate, cells used, blocked duplicates, signature hints. Step 3 (rubric-triggered nudges vs generic) is then re-run on top of H1, with the
 nudges that H1 already covers (duplicate docs, budget display) removed from RUBRIC_NUDGES so they are not counted twice.
+
+A10 (2026-10-03, before it runs). Literature review on feedback delivery (docs/design/LIT_NUDGE_DELIVERY.md): content specificity and
+grounding matter more than timing (Leins et al. 2026; AutoGuide; Reflexion; SWE-agent). Third step-3 arm on H1: E_GROUNDED =
+RUBRIC_GROUNDED_H1 (same validated detectors D7 > D2 > D6 > D1; one note per step, cooldowns; each note quotes the observed evidence, names
+one concrete next action with a code skeleton, one "why"; D1 hedged; D7 never says finish unless the changes are made). Validation seeds 1, 2,
+paired with F0_H1. Secondary contrasts: E_GROUNDED - E_RUBRIC (content), E_RUBRIC - E_GENERIC (timing / targeting), E_GROUNDED - F0_H1.
