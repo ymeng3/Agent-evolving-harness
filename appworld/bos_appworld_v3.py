@@ -60,7 +60,20 @@ def out_cap(code): return 8000 if (HARNESS_V2 and ("api_docs" in code or "api_in
 # code, a read-back after update_alarm showed the old value and the task scored 0/7 instead of 6/7); api_index/api_sig helpers; step
 # counter after every output; read-only duplicate cells blocked (free re-ask); parameter errors answered with the API's signature.
 # Use with BOS_AW_INSTR=appworld/prompts/instructions_h1.txt (doc / chunking rules rewritten, budget stated).
-HARNESS_H1 = os.environ.get("BOS_HARNESS_H1", "0") == "1"; HARNESS_V2 = HARNESS_V2 or HARNESS_H1
+HARNESS_H11 = os.environ.get("BOS_HARNESS_H11", "0") == "1"   # H1.1 = H1 + explicit truncation marker (diagnosis of H1 disc s1, a3ba388)
+HARNESS_H1 = os.environ.get("BOS_HARNESS_H1", "0") == "1" or HARNESS_H11; HARNESS_V2 = HARNESS_V2 or HARNESS_H1
+
+
+def out_view(code, out):
+    """the output text the model sees. H1.1: never cut silently -- say how much is missing and, for API listings, which APIs."""
+    cap = out_cap(code); shown = out[:cap]
+    if HARNESS_H11 and len(out) > cap:
+        cut = re.findall(r"^\s*([a-z_]+\.[a-z_]+)\(", out[cap:], re.M)
+        shown += f"\n[harness] output truncated: {len(out) - cap} more characters not shown"
+        if cut: shown += f"; APIs not shown: {', '.join(cut[:60])}" + (" ..." if len(cut) > 60 else "") + " (use api_sig(app, api) or print a smaller part)"
+    return shown
+
+
 H1_SETUP = '''
 def api_sig(app_name, api_name):
     d = apis.api_docs.show_api_doc(app_name=app_name, api_name=api_name)
@@ -173,7 +186,7 @@ def run_eval(patch_path, seed, tag, n_games=None, workers=4):
                             except Exception: pass
                     else: ev = world.evaluate().to_dict(); gp = sum(1 for x in ev["passes"] if x.get("label") == "no_op_fail"); gf = sum(1 for x in ev["failures"] if x.get("label") == "no_op_fail")
                     traj.append({"step": step, "code": code, "out": out[:200], "exec_error": int(err), "gp": gp, "gf": gf, "replayed": 1})
-                    hist.append(("```python\n" + code + "\n```", "Output:\n```\n" + (out[:out_cap(code)] + "\n```" + stamp(step) if HARNESS_H1 else out[:3000] + "\n```"))); steps += 1
+                    hist.append(("```python\n" + code + "\n```", "Output:\n```\n" + (out_view(code, out) + "\n```" + stamp(step) if HARNESS_H1 else out[:3000] + "\n```"))); steps += 1
                     if world.task_completed(): break
                     continue
                 prompt0 = msgs[-1]["content"]; prompt = prompt0; si = {"pc": 0, "calls": 1}
@@ -277,7 +290,7 @@ def run_eval(patch_path, seed, tag, n_games=None, workers=4):
                 if HARNESS_H1: gp = gf = sf = None   # no mid-episode evaluate (it rolls back writes)
                 else: ev = world.evaluate().to_dict(); gp = sum(1 for x in ev["passes"] if x.get("label") == "no_op_fail"); gf = sum(1 for x in ev["failures"] if x.get("label") == "no_op_fail"); sf = sum(1 for x in ev["failures"] if x.get("label") == "no_op_pass")
                 traj.append({"step": step, "code": code, "resp": resp[-600:], "out": out[:200], "exec_error": int(err), "gp": gp, "gf": gf, "harm_fail": sf, **si})
-                hist.append((resp if resp else "```python\n" + code + "\n```", "Output:\n```\n" + out[:out_cap(code)] + "\n```" + stamp(step))); steps += 1
+                hist.append((resp if resp else "```python\n" + code + "\n```", "Output:\n```\n" + out_view(code, out) + "\n```" + stamp(step))); steps += 1
                 if world.task_completed(): break
             ev = world.evaluate().to_dict(); success = bool(ev.get("success")); gp = sum(1 for x in ev["passes"] if x.get("label") == "no_op_fail"); gf = sum(1 for x in ev["failures"] if x.get("label") == "no_op_fail"); sf = sum(1 for x in ev["failures"] if x.get("label") == "no_op_pass")
         return i, {"bb": [bb.calls, bb.errors, bb.tok[0], bb.tok[1]], "task": tid, "won": success, "G": (gp / (gp + gf) if gp + gf else None), "harm_fail": sf, "steps": steps, "traj": traj}
@@ -287,7 +300,7 @@ def run_eval(patch_path, seed, tag, n_games=None, workers=4):
     class _B: pass
     bb = _B(); bb.calls = sum(r['bb'][0] for r in results); bb.errors = sum(r['bb'][1] for r in results); bb.tok = [sum(r['bb'][2] for r in results), sum(r['bb'][3] for r in results)]
     G = [r["G"] for r in results if r["G"] is not None]
-    res = {"tag": tag, "patch": patch_path, "seed": seed, "model": A.MODEL, "history_length": H, "temperature": T, "parse_unclosed": PARSE_UNCLOSED, "harness_v2": HARNESS_V2, "harness_h1": HARNESS_H1, "max_steps": MAX_STEPS, "instructions": os.path.basename(os.environ.get("BOS_AW_INSTR", "")), "max_tokens": int(os.environ.get("BOS_MAX_TOKENS", "1024")), "backbone_extra": A.Backbone(T).extra, "n_games": len(tasks), "success_rate": sum(r["won"] for r in results) / len(tasks), "mean_G": sum(G) / max(len(G), 1),
+    res = {"tag": tag, "patch": patch_path, "seed": seed, "model": A.MODEL, "history_length": H, "temperature": T, "parse_unclosed": PARSE_UNCLOSED, "harness_v2": HARNESS_V2, "harness_h1": HARNESS_H1, "harness_h11": HARNESS_H11, "max_steps": MAX_STEPS, "instructions": os.path.basename(os.environ.get("BOS_AW_INSTR", "")), "max_tokens": int(os.environ.get("BOS_MAX_TOKENS", "1024")), "backbone_extra": A.Backbone(T).extra, "n_games": len(tasks), "success_rate": sum(r["won"] for r in results) / len(tasks), "mean_G": sum(G) / max(len(G), 1),
            "won": [r["won"] for r in results], "G": [r["G"] for r in results], "harm_fail": [r["harm_fail"] for r in results], "games": [r["task"] for r in results], "steps": [r["steps"] for r in results], "crashed": [r.get("crashed") for r in results], "traj": [r["traj"] for r in results],
            "calls": bb.calls, "api_errors": bb.errors, "tokens_in": bb.tok[0], "tokens_out": bb.tok[1], "finished": time.strftime("%Y-%m-%d %H:%M")}
     os.makedirs(f"{OUT}/results", exist_ok=True); json.dump(res, open(f"{OUT}/results/{tag}_seed{seed}.json", "w"))
