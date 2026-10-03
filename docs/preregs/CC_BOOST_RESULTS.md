@@ -64,9 +64,11 @@ Step usage under V2 (val s1 + disc s1/2): 47/64 losses hit the 30-step budget (w
 H1 = V2 + no mid-episode evaluate (rollback bug) + api_index/api_sig helpers + debounce + signature hints + prompt rewrite (several specs
 per step, batching, stated budget). Mean steps 24 → 13, docs share 0.51 → 0.16; only 1/50 episodes reach 30 steps → the budget no
 longer binds (λ ≈ 0, MATH §10), so remaining failures are semantic (diagnosis of the 8 losses: H1_disc_s1_failures.md).
-The previous diagnosis (TAXONOMY R1: the original prompt's "always look up specs / one chunk per step" caused 55% docs cells) → prompt
-rewrite: this is one full turn of the diagnose → fix loop. Component ablation queued (A14): H1 harness + original prompt.
+**Correction (A17):** the component ablation H1origP (H1 harness, ORIGINAL prompt) scores 0.82 on disc s1 (docs share 0.51, 22 cells,
+completion 0.98): the disc gain is from the harness mechanics, not from the prompt rewrite (which only cuts episode length 22 → 13).
+So V2's budget exhaustion was mostly induced by the evaluate() rollback, not by docs overhead. Isolating the rollback fix: V2noEval queued.
 | H1 | val | 1 | 0.64 | 1.00 | 0.156 | vs V2 +6.0pp [-4, +17], p=0.46, tasks 10 better / 7 worse (1 seed) |
+| H1origP | disc | 1 | 0.82 | 0.98 | 0.510 | vs H1 −1pp, p=1.0 (H1 harness + original prompt) |
 | H1 | val | 1–2 | 0.68 | 1.00 | 0.155 | vs V2 +10.0pp [0.0, +21], p=0.15, tasks 11 better / 5 worse; vs F0old +26.5pp, p<0.001 (2 seeds) |
 
 H1 val: every episode completes; all 18 losses are "completed but wrong". In the H1 val s1 log (baseline, before any D10 arm runs),
