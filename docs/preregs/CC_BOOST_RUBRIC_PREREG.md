@@ -237,3 +237,14 @@ prompt rewrite removed an information-gathering step whose value was invisible t
 Decisions: new base H2 := H1 harness + original prompt (CC_H1origP); seed 2 on disc and val queued. H1.1 re-based on the original prompt
 (CC_H11origP_val s1, s2; not yet run). D10 arms stay on H1 (high base rate of the error = high power for the targeting test, MATH §5).
 Cancelled (never run): H1 RUBRIC / GENERIC / GROUNDED / B45 (base superseded; lambda ~ 0).
+
+A19 (2026-10-04, before it runs). H2 confirmed (2 seeds): disc 0.85, val 0.83 (vs H1 val 0.68, p=0.003). Round 3 diagnosis of the 13 H2
+disc losses (docs/design/diagnosis_2026-10-03/H2_disc_failures.md): answer on action task 3, budget 2 (+2 budget-induced blind/typo
+writes), stale cart 2, keyword-filter recall 2, copy-vs-move 1, over-adding 1. Patch R3_H2: e1 = D10' answer gate (any non-None answer on
+a task without a question cue; cue rule: '?' outside quotes, "tell me / let me know / give me / find out / how many / how much / how long /
+what is|are|was / which one", or an opening interrogative; NOTE: this refined rule overlaps the val-informed A16 candidate, so E_R3 is
+flagged "val-informed" for the cue rule; the frozen D10 on H1 (A15) is the clean test), e2 = D11 unchecked cart before place_order.
+Both block once in the sandbox and let the second call through. Offline on H2 disc: e1 fires on 3/15 losses, 0/85 wins; e2 on 1/15, 0/85.
+Smoke (H2 disc replays): ce73d68 and 9871968 s2 (both losses) now won. Arms on VALIDATION seeds 1, 2, base = H1.1 + original prompt:
+E_R3 = e1 + e2; E_R3ans = e1 only (BOS_EDITS_OFF=e2). Primary: E_R3 - H2 (CC_H1origP_val s1, s2). Secondary: E_R3 - H1.1origP (rubric
+effect net of the truncation marker), E_R3 - E_R3ans (cart check).
