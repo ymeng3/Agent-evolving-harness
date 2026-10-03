@@ -197,3 +197,8 @@ none / plain (RUBRIC_NUDGES_H1 wording) / grounded (RUBRIC_GROUNDED_H1 wording o
 episode's own AppWorld seed. Primary: endgame grounded - none and budget20 grounded - none, paired by state, task-level sign-flip and
 bootstrap. Secondary: grounded - plain (content specificity at matched states); budget20 vs endgame (timing on the same episodes);
 split by the logged outcome (harm in logged-won states = c(sigma) < 0). Readout: boost/branch_readout.py.
+
+A14 (2026-10-03). H1 disc seed 1 = 0.84 (V2 0.58). Component ablation: CC_H1origP_{disc,val} seed 1 = H1 harness with the ORIGINAL
+AppWorld prompt (helpers exist but are not mentioned). Contrasts: H1 - H1origP = prompt rewrite; H1origP - V2 = harness mechanics
+(no evaluate, debounce, signature hints, step stamp). Queued ahead of the step-3 arms. With lambda ~ 0 under H1 (1/50 at the budget),
+prediction for step-economy nudges (E_RUBRIC, E_GENERIC, E_GROUNDED, endgame branches) on H1: near-null; A12 (B45) is kept but low value.

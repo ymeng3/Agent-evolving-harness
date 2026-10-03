@@ -58,4 +58,11 @@ Readout: boost/step3_readout.py (per-task mean over seeds, paired; sign-flip p; 
 V2 = last closed code block + ast validation + free re-asks (no silent fallback) + 8000-char docs output. default_code 139 → 0.
 Step usage under V2 (val s1 + disc s1/2): 47/64 losses hit the 30-step budget (win rate 0.15 at 30 steps); winners use 21.3 steps
 (10.9 docs), median first write at step 19 → the budget binds (MATH_FORMALIZATION §10; λ diagnostic A12).
-H1 (= V2 + no mid-episode evaluate + helpers + prompt rewrite), step-3 arms and branch-at-fire: pending.
+| H1 | disc | 1 | **0.84** | 1.00 | 0.156 | vs V2 **+26.0pp [+13, +39], p=0.002, tasks 20 better / 5 worse** (1 seed) |
+
+H1 = V2 + no mid-episode evaluate (rollback bug) + api_index/api_sig helpers + debounce + signature hints + prompt rewrite (several specs
+per step, batching, stated budget). Mean steps 24 → 13, docs share 0.51 → 0.16; only 1/50 episodes reach 30 steps → the budget no
+longer binds (λ ≈ 0, MATH §10), so remaining failures are semantic (diagnosis of the 8 losses: H1_disc_s1_failures.md).
+The previous diagnosis (TAXONOMY R1: the original prompt's "always look up specs / one chunk per step" caused 55% docs cells) → prompt
+rewrite: this is one full turn of the diagnose → fix loop. Component ablation queued (A14): H1 harness + original prompt.
+Step-3 arms, H1 val, branch-at-fire: pending.
