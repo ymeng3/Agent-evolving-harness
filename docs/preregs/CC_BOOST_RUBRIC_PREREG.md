@@ -176,3 +176,10 @@ grounding matter more than timing (Leins et al. 2026; AutoGuide; Reflexion; SWE-
 RUBRIC_GROUNDED_H1 (same validated detectors D7 > D2 > D6 > D1; one note per step, cooldowns; each note quotes the observed evidence, names
 one concrete next action with a code skeleton, one "why"; D1 hedged; D7 never says finish unless the changes are made). Validation seeds 1, 2,
 paired with F0_H1. Secondary contrasts: E_GROUNDED - E_RUBRIC (content), E_RUBRIC - E_GENERIC (timing / targeting), E_GROUNDED - F0_H1.
+
+A11 (2026-10-03, before E_GROUNDED runs; E_RUBRIC / E_GENERIC unchanged). Re-reading rubric_check_step2.json: D1 (docs share) is NOT
+predictive (fires on 97-100% of episodes; within-task diff 0.04 disc / 0.00 val), consistent with LOOP (2502.01600: RL on AppWorld
+*increases* show_api_doc calls 1.6x). E_GROUNDED therefore replaces D1 with D8' (re-read of a spec already read within the visible
+20-turn history window; D8 within-task +0.29 / +0.39). Prediction for E_RUBRIC's e1 (D1-triggered) is null-to-negative. Side finding:
+HISTORY_LENGTH=20 drops early turns (specs, ids, tokens) after step 20 -- a candidate H2 harness fix (pinned working memory), to be
+tested separately. Literature on failure -> check pipelines saved to docs/design/LIT_FAILURE_TO_RUBRIC.md.

@@ -1,6 +1,6 @@
 EDITS = [
     {"id": "e1", "capability": "Planning", "impl": "Prompt",
-     "trigger": "rubric detectors D7 (<=3 steps left, not completed) > D2 (last two cells identical up to literals) > D6 (supervisor ids in an amazon episode) > D1 (>=50% docs over the last 8 cells); at most ONE note per step, per-detector cooldown",
+     "trigger": "rubric detectors D7 (<=3 steps left, not completed) > D2 (last two cells identical up to literals) > D6 (supervisor ids in an amazon episode) > D8' (re-read of an already-read spec); at most ONE note per step, per-detector cooldown",
      "depends": [], "expected_effect": "grounded, specific, single-action nudges (literature checklist: AutoGuide, Leins et al. 2026, SWE-agent, Anthropic tool-writing)",
      "side_effect_risk": "false-positive nudges; premature completion"},
 ]
@@ -44,11 +44,15 @@ def e1_pre_call(prompt, state):
             note = ("You fetched addresses/cards from the supervisor app, but apis.amazon.place_order needs address_id and payment_card_id from "
                     "Amazon itself:\naddresses = apis.amazon.show_addresses(access_token=amazon_token)\n"
                     "cards = apis.amazon.show_payment_cards(access_token=amazon_token)\nprint(addresses, cards)\n(the supervisor lists have no such ids).")
-    # D1 docs-heavy pacing (lowest priority, hedged)
-    if note is None and len(cells) >= 8 and ok("D1", 6):
-        recent = cells[-8:]; nd = sum(1 for c, _ in recent if "api_docs" in c or "api_index" in c)
-        if nd >= 4:
-            last["D1"] = step
-            note = (f"{nd} of your last 8 steps were documentation lookups. If you still need several specs, get them in one step "
-                    f"(e.g. api_index('<app>') prints every API's signature at once), and call APIs whose parameters you already know directly.")
+    # D8' spec re-read (validated: D8 within-task +0.29 disc / +0.39 val; docs share D1 is NOT predictive and is not nudged).
+    # H1 already debounces byte-identical repeats; this catches a re-read written differently. Only reads still visible in the
+    # 20-turn history window count (older reads have scrolled out, so re-reading them is legitimate).
+    if note is None and len(cells) >= 2 and ok("D8", 4):
+        kre = re.compile(r"""(?:show_api_doc|api_sig)\s*\(\s*(?:app_name\s*=\s*)?['"]([a-z_]+)['"]\s*,\s*(?:api_name\s*=\s*)?['"]([a-z_]+)['"]""")
+        seen = set(k for c, _ in cells[-20:-1] for k in kre.findall(c))   # only reads still inside the 20-turn history window
+        again = [k for k in kre.findall(cells[-1][0]) if k in seen]
+        if again:
+            last["D8"] = step; a_, f_ = again[0]
+            note = (f"You already read the spec of {a_}.{f_} a few steps ago (it is still above in this conversation), so re-reading it costs a step. "
+                    f"If you have the parameters, call apis.{a_}.{f_}(...) directly now; if it failed, the error message says which argument is wrong.")
     return prompt + ("\n\n[harness note] " + note if note else "")
