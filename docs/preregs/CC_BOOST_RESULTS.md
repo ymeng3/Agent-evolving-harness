@@ -90,4 +90,9 @@ suspect). Same split on val: rollback fix +10pp, other mechanics +16pp (completi
 
 *the readout's "completed" regex looks for apis.supervisor.complete_task in the code, which the gate rewrites to _cc_complete.
 Clean test (D10 frozen before any val data, A15). Only 6 of the +11 wins are direct gate hits; the rest is seed variance -> seed 2 pending.
-E_ANSGEN, H1.1origP, E_R3, E_R3ans: pending.
+| E_ANSGEN (H1 + same rule, always on) | val | 1 | 0.86 | 1.00 | 0.148 | vs H1 +22pp, p=0.014; **E_ANSCHK − E_ANSGEN 0.0pp [−10, +10], p=1.0** |
+
+Targeting contrast (MATH §5): no difference. Consistent with §5: targeting only adds value where the advice harms non-trigger states
+(c(σ) < 0); "answer only if asked" does not hurt question tasks, so always-on advice recovers the same failures.
+Seed 2 of both pending (runs on vLLM with MTP spec decode from 2026-10-04 05:13; lossless, logged in queue history).
+H1.1origP, E_R3, E_R3ans: pending.
