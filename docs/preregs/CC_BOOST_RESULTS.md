@@ -70,6 +70,7 @@ So V2's budget exhaustion was mostly induced by the evaluate() rollback, not by 
 | H1 | val | 1 | 0.64 | 1.00 | 0.156 | vs V2 +6.0pp [-4, +17], p=0.46, tasks 10 better / 7 worse (1 seed) |
 | H1origP | disc | 1 | 0.82 | 0.98 | 0.510 | vs H1 −1pp, p=1.0 (H1 harness + original prompt) |
 | V2noEval | disc | 1 | 0.70 | 0.72 | 0.514 | vs V2 +12pp [+3, +22], p=0.064; H1origP − V2noEval +12pp [+4, +20], p=0.067 (7 better / 1 worse) |
+| V2noEval | val | 1 | 0.68 | 0.76 | 0.500 | vs V2 +10pp [0, +20], p=0.16; H1origP − V2noEval +16pp [+6, +28], p=0.039 (10 better / 2 worse) |
 | H1origP | val | 1 | **0.84** | 0.94 | 0.505 | vs H1 **+16pp [+6, +26], p=0.015**; vs V2 +26pp, p<0.001 |
 | H1 | val | 1–2 | 0.68 | 1.00 | 0.155 | vs V2 +10.0pp [0.0, +21], p=0.15, tasks 11 better / 5 worse; vs F0old +26.5pp, p<0.001 (2 seeds) |
 
@@ -81,4 +82,5 @@ changed (that would tune on validation); the refined cue rule is recorded as a c
 (0/50 vs 18–24/50), which states that action tasks take no answer → id/sentence answers on 9–12 losses vs 2. New base H2 = H1 harness +
 original prompt. Disc decomposition of V2 → H2 (+24pp): the rollback fix alone +12pp; the remaining mechanics (step stamp, debounce, signature hints,
 unmentioned helpers) another +12pp and lift completion 0.72 → 0.98 at the same 22–24 cells (step stamp = budget awareness is the prime
-suspect). D10 arms (on H1), H2 seed 2, H1.1 on original prompt, V2noEval val: pending.
+suspect). Same split on val: rollback fix +10pp, other mechanics +16pp (completion 0.76 → 0.94).
+D10 arms (on H1), H2 seed 2, H1.1 on original prompt: pending.
