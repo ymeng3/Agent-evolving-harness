@@ -14,6 +14,7 @@ sys.path.insert(0, os.environ.get("BOS_ALF_DIR", "/net/scratch/ymeng3/bos_alfwor
 OUT = os.environ.get("BOS_OUT", os.path.dirname(os.path.abspath(__file__))); TASKS = json.load(open(os.environ.get("BOS_TASKS", f"{OUT}/tasks50.json")))
 INSTR = open(os.environ.get("BOS_AW_INSTR", "/net/scratch/ymeng3/appworld_repo/experiments/prompts/react_code_agent/instructions.txt")).read()
 MAX_STEPS = int(os.environ.get("BOS_AW_STEPS", "30"))
+INSTR = INSTR.replace("budget of 30 steps", f"budget of {MAX_STEPS} steps")   # H1 prompt states the real budget (no-op at 30)
 REPLAY = json.load(open(os.environ["BOS_REPLAY"])) if os.environ.get("BOS_REPLAY") else {}
 HINTS = json.load(open(os.environ["BOS_HINTS"])) if os.environ.get("BOS_HINTS") else {}
 def demo_messages(sup):
@@ -280,7 +281,7 @@ def run_eval(patch_path, seed, tag, n_games=None, workers=4):
     class _B: pass
     bb = _B(); bb.calls = sum(r['bb'][0] for r in results); bb.errors = sum(r['bb'][1] for r in results); bb.tok = [sum(r['bb'][2] for r in results), sum(r['bb'][3] for r in results)]
     G = [r["G"] for r in results if r["G"] is not None]
-    res = {"tag": tag, "patch": patch_path, "seed": seed, "model": A.MODEL, "history_length": H, "temperature": T, "parse_unclosed": PARSE_UNCLOSED, "harness_v2": HARNESS_V2, "harness_h1": HARNESS_H1, "instructions": os.path.basename(os.environ.get("BOS_AW_INSTR", "")), "max_tokens": int(os.environ.get("BOS_MAX_TOKENS", "1024")), "backbone_extra": A.Backbone(T).extra, "n_games": len(tasks), "success_rate": sum(r["won"] for r in results) / len(tasks), "mean_G": sum(G) / max(len(G), 1),
+    res = {"tag": tag, "patch": patch_path, "seed": seed, "model": A.MODEL, "history_length": H, "temperature": T, "parse_unclosed": PARSE_UNCLOSED, "harness_v2": HARNESS_V2, "harness_h1": HARNESS_H1, "max_steps": MAX_STEPS, "instructions": os.path.basename(os.environ.get("BOS_AW_INSTR", "")), "max_tokens": int(os.environ.get("BOS_MAX_TOKENS", "1024")), "backbone_extra": A.Backbone(T).extra, "n_games": len(tasks), "success_rate": sum(r["won"] for r in results) / len(tasks), "mean_G": sum(G) / max(len(G), 1),
            "won": [r["won"] for r in results], "G": [r["G"] for r in results], "harm_fail": [r["harm_fail"] for r in results], "games": [r["task"] for r in results], "steps": [r["steps"] for r in results], "crashed": [r.get("crashed") for r in results], "traj": [r["traj"] for r in results],
            "calls": bb.calls, "api_errors": bb.errors, "tokens_in": bb.tok[0], "tokens_out": bb.tok[1], "finished": time.strftime("%Y-%m-%d %H:%M")}
     os.makedirs(f"{OUT}/results", exist_ok=True); json.dump(res, open(f"{OUT}/results/{tag}_seed{seed}.json", "w"))

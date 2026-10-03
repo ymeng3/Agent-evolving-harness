@@ -183,3 +183,8 @@ predictive (fires on 97-100% of episodes; within-task diff 0.04 disc / 0.00 val)
 20-turn history window; D8 within-task +0.29 / +0.39). Prediction for E_RUBRIC's e1 (D1-triggered) is null-to-negative. Side finding:
 HISTORY_LENGTH=20 drops early turns (specs, ids, tokens) after step 20 -- a candidate H2 harness fix (pinned working memory), to be
 tested separately. Literature on failure -> check pipelines saved to docs/design/LIT_FAILURE_TO_RUBRIC.md.
+
+A12 (2026-10-03). Diagnostic (not an arm, no claim): step-budget shadow price. V2 data: episodes reaching 30 steps win 15% and are
+47/64 losses; winners use 21.3 steps (10.9 docs) with median first write at step 19, so the 30-step budget binds. Run F0_H1 with
+BOS_AW_STEPS=45 on validation seed 1 (prompt states the real budget; no-op at 30). lambda_hat = (J(45) - J(30)) / 15 per step, paired by
+task against F0_H1 val seed 1. Used only to convert "steps saved" by a dimension into expected value (MATH_FORMALIZATION §10).
