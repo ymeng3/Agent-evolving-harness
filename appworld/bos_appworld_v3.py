@@ -166,12 +166,18 @@ def run_eval(patch_path, seed, tag, n_games=None, workers=4):
                     try:
                         if mu: mu(state, hist[-1][1] if hist else "", code, out)
                     except Exception: pass
-                    ev = world.evaluate().to_dict(); gp = sum(1 for x in ev["passes"] if x.get("label") == "no_op_fail"); gf = sum(1 for x in ev["failures"] if x.get("label") == "no_op_fail")
+                    if HARNESS_H1:   # 2026-10-03: replay must not evaluate either (rollback); hooks see the replayed cells; same output format
+                        gp = gf = None; done_codes.append((" ".join(code.split()), readonly(code)))
+                        for eid, f in (V3["post_exec"] if V3 else []):
+                            try: f(code, out, state)
+                            except Exception: pass
+                    else: ev = world.evaluate().to_dict(); gp = sum(1 for x in ev["passes"] if x.get("label") == "no_op_fail"); gf = sum(1 for x in ev["failures"] if x.get("label") == "no_op_fail")
                     traj.append({"step": step, "code": code, "out": out[:200], "exec_error": int(err), "gp": gp, "gf": gf, "replayed": 1})
-                    hist.append(("```python\n" + code + "\n```", "Output:\n```\n" + out[:3000] + "\n```")); steps += 1
+                    hist.append(("```python\n" + code + "\n```", "Output:\n```\n" + (out[:out_cap(code)] + "\n```" + stamp(step) if HARNESS_H1 else out[:3000] + "\n```"))); steps += 1
                     if world.task_completed(): break
                     continue
                 prompt0 = msgs[-1]["content"]; prompt = prompt0; si = {"pc": 0, "calls": 1}
+                state["_step"], state["_tid"], state["_replay_len"] = step, tid, len(pre)   # for hooks (branch-at-fire evaluation)
                 try:
                     if fp: prompt = fp(prompt, state)
                 except Exception: pass
