@@ -248,3 +248,11 @@ Both block once in the sandbox and let the second call through. Offline on H2 di
 Smoke (H2 disc replays): ce73d68 and 9871968 s2 (both losses) now won. Arms on VALIDATION seeds 1, 2, base = H1.1 + original prompt:
 E_R3 = e1 + e2; E_R3ans = e1 only (BOS_EDITS_OFF=e2). Primary: E_R3 - H2 (CC_H1origP_val s1, s2). Secondary: E_R3 - H1.1origP (rubric
 effect net of the truncation marker), E_R3 - E_R3ans (cart check).
+
+A20 (2026-10-04). Infrastructure log + anomaly. 05:13 vLLM restarted with native MTP spec decode (num_spec_tokens=2): on this hybrid
+model vLLM switches to dense mamba-state checkpointing -> KV 19.3 -> 17.8 GiB, prefix hit 82% -> ~40%, slower; reverted at 05:23 (no
+result was produced under MTP; the job running then was killed and requeued). Workers 8 -> 12 for CC_H11origP_val s1: slower (2795 s vs
+2200-2600 s) and prefix hit fell to 57%; back to 8. ANOMALY: CC_H11origP_val s1 = 0.66 vs H2 val 0.84/0.82 (-17pp, p=0.003), with
+losses up in every class (answer 6, budget 5, other 6) and no API errors -- not the pattern expected from a truncation marker. Because
+the server state also changed (restart, 12 workers), a control CC_H2ctl_val s1 (identical H2 config, current server, 8 workers) runs
+next. If H2ctl ~ 0.83 -> the H1.1 marker itself hurts; if ~ 0.66 -> server-side change, and H11origP s1 is invalid.
