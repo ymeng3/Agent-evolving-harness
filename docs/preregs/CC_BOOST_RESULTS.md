@@ -59,6 +59,7 @@ V2 = last closed code block + ast validation + free re-asks (no silent fallback)
 Step usage under V2 (val s1 + disc s1/2): 47/64 losses hit the 30-step budget (win rate 0.15 at 30 steps); winners use 21.3 steps
 (10.9 docs), median first write at step 19 → the budget binds (MATH_FORMALIZATION §10; λ diagnostic A12).
 | H1 | disc | 1 | **0.84** | 1.00 | 0.156 | vs V2 **+26.0pp [+13, +39], p=0.002, tasks 20 better / 5 worse** (1 seed) |
+| H1 | disc | 1–2 | **0.83** | 1.00 | 0.175 | vs V2 **+25.0pp [+14, +37], p=0.001, tasks 18 better / 3 worse** (2 seeds) |
 
 H1 = V2 + no mid-episode evaluate (rollback bug) + api_index/api_sig helpers + debounce + signature hints + prompt rewrite (several specs
 per step, batching, stated budget). Mean steps 24 → 13, docs share 0.51 → 0.16; only 1/50 episodes reach 30 steps → the budget no
