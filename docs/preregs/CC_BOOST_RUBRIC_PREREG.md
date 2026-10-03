@@ -220,3 +220,10 @@ A16 (2026-10-03). Observation only, no change to any queued arm: on the H1 val s
 wins. Candidate refinement (val-informed, therefore must be tested on data not used here): strip quoted strings before looking for '?',
 and use question cues "tell me|let me know|how many|how much|what is/are/was|which one|give me|find out|answer" instead of bare
 who/what/which. Not used in E_ANSCHK.
+
+A17 (2026-10-03). A14 ablation result (disc s1): H1 harness + ORIGINAL prompt = 0.82 (docs share 0.51, 22 cells, completion 0.98) vs
+H1 0.83 (2 seeds; +1pp, p=1.0) vs V2 0.58. The +25pp of H1 over V2 on disc comes from the harness mechanics, not the prompt rewrite;
+the prompt rewrite only shortens episodes (22 -> 13 cells). This corrects the earlier attribution (RESULTS) and the §10 reading:
+V2's budget exhaustion was mostly induced by the evaluate() rollback (writes undone -> re-dos), not by docs overhead.
+Second ablation: CC_V2noEval_{disc,val} seed 1 = V2 + only the no-mid-episode-evaluate fix (BOS_NO_EVAL=1; no helpers, debounce, hints,
+stamp; original prompt). Contrast V2noEval - V2 = the rollback fix; H1origP - V2noEval = debounce + signature hints + stamp + (unmentioned) helpers.

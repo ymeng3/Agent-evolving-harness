@@ -62,6 +62,7 @@ def out_cap(code): return 8000 if (HARNESS_V2 and ("api_docs" in code or "api_in
 # Use with BOS_AW_INSTR=appworld/prompts/instructions_h1.txt (doc / chunking rules rewritten, budget stated).
 HARNESS_H11 = os.environ.get("BOS_HARNESS_H11", "0") == "1"   # H1.1 = H1 + explicit truncation marker (diagnosis of H1 disc s1, a3ba388)
 HARNESS_H1 = os.environ.get("BOS_HARNESS_H1", "0") == "1" or HARNESS_H11; HARNESS_V2 = HARNESS_V2 or HARNESS_H1
+NO_EVAL = HARNESS_H1 or os.environ.get("BOS_NO_EVAL", "0") == "1"   # ablation: V2 + only the no-mid-episode-evaluate fix
 
 
 def out_view(code, out):
@@ -254,7 +255,7 @@ def run_eval(patch_path, seed, tag, n_games=None, workers=4):
                 if not code and HARNESS_V2:   # free retries exhausted: spend the step, execute nothing, and say so
                     out = f"Nothing was executed this step: {si.get('invalid_code', 'no valid code block')}. Variables and app state are unchanged."
                     err = True; si["no_exec"] = 1
-                    if HARNESS_H1: gp = gf = sf = None   # no mid-episode evaluate (it rolls back writes)
+                    if NO_EVAL: gp = gf = sf = None   # no mid-episode evaluate (it rolls back writes)
                     else: ev = world.evaluate().to_dict(); gp = sum(1 for x in ev["passes"] if x.get("label") == "no_op_fail"); gf = sum(1 for x in ev["failures"] if x.get("label") == "no_op_fail"); sf = sum(1 for x in ev["failures"] if x.get("label") == "no_op_pass")
                     traj.append({"step": step, "code": "", "resp": resp[-600:], "out": out[:200], "exec_error": 1, "gp": gp, "gf": gf, "harm_fail": sf, **si})
                     hist.append((resp[-4000:] or "(empty reply)", "Output:\n```\n" + out + "\n```" + stamp(step))); steps += 1
@@ -287,7 +288,7 @@ def run_eval(patch_path, seed, tag, n_games=None, workers=4):
                     for eid, f in V3["post_exec"]:
                         try: f(code, out, state)
                         except Exception as e: si.setdefault("edit_err", []).append(f"{eid}:post_exec:{str(e)[:40]}")
-                if HARNESS_H1: gp = gf = sf = None   # no mid-episode evaluate (it rolls back writes)
+                if NO_EVAL: gp = gf = sf = None   # no mid-episode evaluate (it rolls back writes)
                 else: ev = world.evaluate().to_dict(); gp = sum(1 for x in ev["passes"] if x.get("label") == "no_op_fail"); gf = sum(1 for x in ev["failures"] if x.get("label") == "no_op_fail"); sf = sum(1 for x in ev["failures"] if x.get("label") == "no_op_pass")
                 traj.append({"step": step, "code": code, "resp": resp[-600:], "out": out[:200], "exec_error": int(err), "gp": gp, "gf": gf, "harm_fail": sf, **si})
                 hist.append((resp if resp else "```python\n" + code + "\n```", "Output:\n```\n" + out_view(code, out) + "\n```" + stamp(step))); steps += 1
@@ -300,7 +301,7 @@ def run_eval(patch_path, seed, tag, n_games=None, workers=4):
     class _B: pass
     bb = _B(); bb.calls = sum(r['bb'][0] for r in results); bb.errors = sum(r['bb'][1] for r in results); bb.tok = [sum(r['bb'][2] for r in results), sum(r['bb'][3] for r in results)]
     G = [r["G"] for r in results if r["G"] is not None]
-    res = {"tag": tag, "patch": patch_path, "seed": seed, "model": A.MODEL, "history_length": H, "temperature": T, "parse_unclosed": PARSE_UNCLOSED, "harness_v2": HARNESS_V2, "harness_h1": HARNESS_H1, "harness_h11": HARNESS_H11, "max_steps": MAX_STEPS, "instructions": os.path.basename(os.environ.get("BOS_AW_INSTR", "")), "max_tokens": int(os.environ.get("BOS_MAX_TOKENS", "1024")), "backbone_extra": A.Backbone(T).extra, "n_games": len(tasks), "success_rate": sum(r["won"] for r in results) / len(tasks), "mean_G": sum(G) / max(len(G), 1),
+    res = {"tag": tag, "patch": patch_path, "seed": seed, "model": A.MODEL, "history_length": H, "temperature": T, "parse_unclosed": PARSE_UNCLOSED, "harness_v2": HARNESS_V2, "harness_h1": HARNESS_H1, "harness_h11": HARNESS_H11, "no_eval": NO_EVAL, "max_steps": MAX_STEPS, "instructions": os.path.basename(os.environ.get("BOS_AW_INSTR", "")), "max_tokens": int(os.environ.get("BOS_MAX_TOKENS", "1024")), "backbone_extra": A.Backbone(T).extra, "n_games": len(tasks), "success_rate": sum(r["won"] for r in results) / len(tasks), "mean_G": sum(G) / max(len(G), 1),
            "won": [r["won"] for r in results], "G": [r["G"] for r in results], "harm_fail": [r["harm_fail"] for r in results], "games": [r["task"] for r in results], "steps": [r["steps"] for r in results], "crashed": [r.get("crashed") for r in results], "traj": [r["traj"] for r in results],
            "calls": bb.calls, "api_errors": bb.errors, "tokens_in": bb.tok[0], "tokens_out": bb.tok[1], "finished": time.strftime("%Y-%m-%d %H:%M")}
     os.makedirs(f"{OUT}/results", exist_ok=True); json.dump(res, open(f"{OUT}/results/{tag}_seed{seed}.json", "w"))
