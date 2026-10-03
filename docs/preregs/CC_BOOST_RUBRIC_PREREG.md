@@ -202,3 +202,16 @@ A14 (2026-10-03). H1 disc seed 1 = 0.84 (V2 0.58). Component ablation: CC_H1orig
 AppWorld prompt (helpers exist but are not mentioned). Contrasts: H1 - H1origP = prompt rewrite; H1origP - V2 = harness mechanics
 (no evaluate, debounce, signature hints, step stamp). Queued ahead of the step-3 arms. With lambda ~ 0 under H1 (1/50 at the budget),
 prediction for step-economy nudges (E_RUBRIC, E_GENERIC, E_GROUNDED, endgame branches) on H1: near-null; A12 (B45) is kept but low value.
+
+A15 (2026-10-03, before any run). Round 2 of the diagnose -> rubric loop, on H1. Diagnosis of the 8 H1 disc s1 losses
+(docs/design/diagnosis_2026-10-03/H1_disc_s1_failures.md): 4 (+1 secondary) = answer passed on an action task (order_id), 1 = silent
+8000-char truncation hid the needed API (harness), 1 stock not checked before an irreversible order, 1 misread delivery target, 1
+ground-truth convention (ba46d91, 336 vs 335; excluded from interpretation, not from the metric). New rubric dimension D10 "answer on an
+action task" (no question cue in the task, and the answer is an id returned by the agent's own successful write, or a sentence > 8 words);
+offline on disc s1 it fires on 5/8 losses and 0/42 wins (designed there, so disc is not a test). Arms on VALIDATION seeds 1, 2:
+  E_ANSCHK  = H1 + ANSWER_CHECK_H1 (run-time check in the sandbox, blocks once with a grounded note; second call goes through);
+  E_ANSGEN  = H1 + ANSWER_GENERIC_H1 (same rule as always-on advice every step) -- targeting contrast (MATH section 5);
+  H1.1      = BOS_HARNESS_H11 (H1 + explicit truncation marker naming the cut APIs) -- harness fix.
+Primary: E_ANSCHK - F0_H1 (val, 2 seeds, paired by task). Secondary: E_ANSCHK - E_ANSGEN; H1.1 - F0_H1. Manipulation check: rate of
+non-null answers on action tasks; harm check: success on question tasks. Smoke (disc e7f15ba, replay to place_order): block path prints
+the note and the agent then completes with no answer (won). Queued ahead of the step-economy arms (predicted null on H1, A14).
