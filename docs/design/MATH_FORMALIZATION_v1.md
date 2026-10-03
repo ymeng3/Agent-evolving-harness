@@ -113,3 +113,7 @@ $$\tau_k\approx \lambda\,\mathbb E[\Delta_k]\;-\;\mathbb E[\eta_k]\,P(\text{完�
 **与 boosting 闭环（§6）的衔接**：残差失败质量按"未完成"和"完成但错"拆开，
 $$M_r=M_r^{\text{budget}}+M_r^{\text{semantic}}.$$
 第 $r$ 轮选择 headroom 最大的那一项。V2 下前者约为后者的 2.8 倍，所以本轮的维度都在省步数：D2 循环、D7 收尾、文档合并。H1 之后应重新测这个比例。
+
+**§10 更正（A17，同日）**：消融 H1origP（H1 harness 配原始 prompt）在 disc 上为 0.82，文档占比仍是 0.51，但完成率达到 0.98。可见 V2 下"预算绑定"的主要原因是 `evaluate()` 回滚：写操作被撤销，agent 只能重做，所需步数 $T$ 被人为拉长，而不是查文档的开销。
+
+框架本身不变：$J=P(T\le B)\cdot q$，以及 $\tau_k\approx\lambda\Delta_k-\eta_k$。但这个例子说明，**harness 缺陷会改变 $T$ 的分布，从而改变 λ**。所以必须先清理基线，再估计各维度的价值，这与 §8 的论点一致。在 H1 下 $\lambda\approx 0$，残差全部落在 $q$ 这一项（语义错误）上，于是第 2 轮选出的是 D10（行动类任务却给出了答案）。
