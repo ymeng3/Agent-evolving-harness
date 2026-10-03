@@ -85,4 +85,9 @@ changed (that would tune on validation); the refined cue rule is recorded as a c
 original prompt. Disc decomposition of V2 → H2 (+24pp): the rollback fix alone +12pp; the remaining mechanics (step stamp, debounce, signature hints,
 unmentioned helpers) another +12pp and lift completion 0.72 → 0.98 at the same 22–24 cells (step stamp = budget awareness is the prime
 suspect). Same split on val: rollback fix +10pp, other mechanics +16pp (completion 0.76 → 0.94).
-D10 arms (on H1), H2 seed 2, H1.1 on original prompt: pending.
+
+| E_ANSCHK (H1 + frozen D10) | val | 1 | 0.86 | (n/a*) | 0.165 | vs H1 s1 **+22pp [+10, +34], p=0.008, 13 better / 2 worse**; gate fired in 6 episodes, all won |
+
+*the readout's "completed" regex looks for apis.supervisor.complete_task in the code, which the gate rewrites to _cc_complete.
+Clean test (D10 frozen before any val data, A15). Only 6 of the +11 wins are direct gate hits; the rest is seed variance -> seed 2 pending.
+E_ANSGEN, H1.1origP, E_R3, E_R3ans: pending.
