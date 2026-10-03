@@ -215,3 +215,8 @@ offline on disc s1 it fires on 5/8 losses and 0/42 wins (designed there, so disc
 Primary: E_ANSCHK - F0_H1 (val, 2 seeds, paired by task). Secondary: E_ANSCHK - E_ANSGEN; H1.1 - F0_H1. Manipulation check: rate of
 non-null answers on action tasks; harm check: success on question tasks. Smoke (disc e7f15ba, replay to place_order): block path prints
 the note and the agent then completes with no answer (won). Queued ahead of the step-economy arms (predicted null on H1, A14).
+
+A16 (2026-10-03). Observation only, no change to any queued arm: on the H1 val s1 BASELINE log, frozen D10 fires on 9/18 losses, 0/32
+wins. Candidate refinement (val-informed, therefore must be tested on data not used here): strip quoted strings before looking for '?',
+and use question cues "tell me|let me know|how many|how much|what is/are/was|which one|give me|find out|answer" instead of bare
+who/what/which. Not used in E_ANSCHK.

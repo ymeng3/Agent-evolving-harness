@@ -65,4 +65,10 @@ per step, batching, stated budget). Mean steps 24 → 13, docs share 0.51 → 0.
 longer binds (λ ≈ 0, MATH §10), so remaining failures are semantic (diagnosis of the 8 losses: H1_disc_s1_failures.md).
 The previous diagnosis (TAXONOMY R1: the original prompt's "always look up specs / one chunk per step" caused 55% docs cells) → prompt
 rewrite: this is one full turn of the diagnose → fix loop. Component ablation queued (A14): H1 harness + original prompt.
-Step-3 arms, H1 val, branch-at-fire: pending.
+| H1 | val | 1 | 0.64 | 1.00 | 0.156 | vs V2 +6.0pp [-4, +17], p=0.46, tasks 10 better / 7 worse (1 seed) |
+
+H1 val: every episode completes; all 18 losses are "completed but wrong". In the H1 val s1 log (baseline, before any D10 arm runs),
+the frozen D10 detector (A15) would fire on 9/18 losses and 0/32 wins; 3 more losses pass an order id / sentence on action tasks that
+D10's question-cue rule misclassifies as questions ("who/what/which" in relative clauses; a "?" inside a quoted note). D10 is NOT
+changed (that would tune on validation); the refined cue rule is recorded as a candidate for a later, fresh test (A16).
+Step-3 arms, H1 val s2, D10 arms, branch-at-fire: pending.
