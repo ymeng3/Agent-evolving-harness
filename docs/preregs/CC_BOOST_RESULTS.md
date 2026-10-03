@@ -106,4 +106,8 @@ Why H2ctl is lower: the extra losses are almost all "non-null answer on an actio
 2–3 and other 3–5 are stable). complete_task-spec reading is unchanged (18, 15, 18 / 50); all 7 ctl losses of this kind never read the
 spec (answers: confirmation sentences or the order id 3146). So most of the ~7pp run-to-run variance of H2 comes from one stochastic
 failure mode — exactly the D10 target. Expected side effect of the R3 answer gate: higher mean AND lower variance.
-E_ANSCHK s2, E_ANSGEN s2, H1.1origP s2, E_R3, E_R3ans: pending.
+| **E_ANSCHK** (H1 + frozen D10) | val | 1–2 | **0.83** | (n/a*) | 0.174 | vs H1 (2 runs) **+15pp [+5, +25], p=0.033, 13 better / 5 worse**; gate fired 6 + 8 times, **14/14 of those episodes won**; vs H2 (3 runs) +3.7pp, p=0.55 |
+
+D10 confirmed on 2 seeds (clean, frozen before val). Precision of the trigger is 14/14. H1 + D10 reaches the H2 level (0.83 vs 0.79)
+with ~40% fewer steps (14.4 vs 23.8 cells) -> same success at much lower inference cost.
+E_ANSGEN s2, H1.1origP s2, E_R3, E_R3ans: pending.
