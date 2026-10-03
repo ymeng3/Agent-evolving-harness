@@ -43,3 +43,19 @@ SECONDARY targeting V2_SEM - V2_SEM_UNT -0.056 [-0.115, +0.006] (targeted slight
 **Result: null/negative, same as v1.** The XGBoost-gain + nested-CV admission rule rejects every pure programmatic feature (no false
 positive), but the semantic criteria it does admit are "how far along is the agent at cell 14" (progress / task-difficulty proxies) and
 are worse than intercept on new task families. PRIMARY v2 contrast V2_FULL(_B) vs V2_PROG(_B): V2_FULL_B worse (0.858 vs 0.677).
+
+## Harness track (diagnosis → harness fixes; prereg A7–A9)
+
+Readout: boost/step3_readout.py (per-task mean over seeds, paired; sign-flip p; task bootstrap 90% CI). Thinking ON, 3072 tokens.
+
+| arm | split | seeds | success | completed | docs share | vs F0old |
+|---|---|---|---|---|---|---|
+| F0old (T1 regime) | disc | 2–5 | 0.48 | – | – | – |
+| V2 | disc | 1–2 | 0.58 | – | – | +10.0pp [+4.3, +15.7], p=0.007 |
+| F0old (T1 regime) | val | 1–4 | 0.415 | 0.515 | 0.534 | – |
+| V2 | val | 1–2 | 0.580 | 0.710 | 0.499 | **+16.5pp [+8.5, +25.0], p=0.002, tasks 18 better / 5 worse** |
+
+V2 = last closed code block + ast validation + free re-asks (no silent fallback) + 8000-char docs output. default_code 139 → 0.
+Step usage under V2 (val s1 + disc s1/2): 47/64 losses hit the 30-step budget (win rate 0.15 at 30 steps); winners use 21.3 steps
+(10.9 docs), median first write at step 19 → the budget binds (MATH_FORMALIZATION §10; λ diagnostic A12).
+H1 (= V2 + no mid-episode evaluate + helpers + prompt rewrite), step-3 arms and branch-at-fire: pending.
