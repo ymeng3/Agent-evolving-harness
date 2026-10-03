@@ -188,3 +188,12 @@ A12 (2026-10-03). Diagnostic (not an arm, no claim): step-budget shadow price. V
 47/64 losses; winners use 21.3 steps (10.9 docs) with median first write at step 19, so the 30-step budget binds. Run F0_H1 with
 BOS_AW_STEPS=45 on validation seed 1 (prompt states the real budget; no-op at 30). lambda_hat = (J(45) - J(30)) / 15 per step, paired by
 task against F0_H1 val seed 1. Used only to convert "steps saved" by a dimension into expected value (MATH_FORMALIZATION §10).
+
+A13 (2026-10-03). Branch-at-fire evaluation (MATH_FORMALIZATION sections 2/4: local estimate of a_k, efficiency RE_k = v_pair/(s_k^2 f_k v_k)).
+Harness: H1 replay of a logged prefix is exact (no evaluate, hooks see replayed cells; smoke: a 20-step replay reproduces the win with 0 LLM
+calls; the note is injected once at the first live step). Build: boost/branch_build.py on CC_H1_F0 disc+val logs (seeds 1, 2). States:
+'endgame' (D7 firing, k = 27), 'budget20' (still running at step 20, no complete_task), 'first' (first D2 / D6 / D8' firing). Variants
+none / plain (RUBRIC_NUDGES_H1 wording) / grounded (RUBRIC_GROUNDED_H1 wording or the counted progress note). Each run replays with the
+episode's own AppWorld seed. Primary: endgame grounded - none and budget20 grounded - none, paired by state, task-level sign-flip and
+bootstrap. Secondary: grounded - plain (content specificity at matched states); budget20 vs endgame (timing on the same episodes);
+split by the logged outcome (harm in logged-won states = c(sigma) < 0). Readout: boost/branch_readout.py.
