@@ -1,0 +1,19 @@
+batch1 tasks: 8f79e35_1 9126bf0_1 9871968_1 1a79e37_1 ffea2b5_1
+
+KEY FINDINGS (verbatim structure from the diagnosis agent, condensed):
+- 8f79e35_1 (Gmail draft invite to 6 invitees; mixed). Failures: fix_seed1 decisive c28 [J,A,I,B]: 16/26 cells api_docs; send cells c26/c28 executed code different from the model's final block (undefined draft_body; literal `send_email(...)` Ellipsis sketch) -> 2/6 sent. disc_seed4 c28 [G,I,A,F,J,D]: contacts searched one per cell (c20-25), truncated Gmail API list re-listed (c10-12), phone login with email before phone number (c16-17), update_draft+send_email_from_draft route 2 cells/invitee. disc_seed5 c28 [A,J,G,I,F]: 6 cells fighting truncated Gmail list (c9-14), phone login error, contacts one per cell, sends one per cell. Success: batched contact lookups and sends in loops (disc_seed2 c21-22, c24), finished 27/28 cells (2-3 spare).
+- 9126bf0_1 (alarm 5 min before new standup; mixed). ALL 3 failures: correct update_alarm, then read-back (show_alarm) returned STALE pre-write values, agent re-issued the write, completed with 1/7 checks [J, K:stale-readback-triggered-duplicate-write, H]. Both successes wrote once and completed with no read-back. Not visible by cell 15. Env read-after-write inconsistency suspected.
+- 9871968_1 (buy whole Amazon wishlist to work address; mixed). orig_seed1 c25 [A,I,G,E]: 13 docs cells, redundant supervisor lookups, per-item add_product_to_cart (c25-29), never ordered. disc_seed2 c27 [K:bad-error-recovery,A,I]: place_order 422 insufficient balance on card 199; did not retry card 200 already listed; detoured to docs. disc_seed3 c17 [E,H,K:overcautious]: used add_product_to_cart instead of move_product_from_wish_list_to_cart, items stayed on wishlist, 5/6 checks. Success: move in one loop, immediate retry with next card after 422, finished at 30/30.
+- 1a79e37_1 (place Amazon order from husband's email; always fails). All 3: ~18-19 of 30 cells docs/listing + nonessential lookups (date, relationships, product types); email read only at c18-21; never reached cart. orig c0 harness executed reasoning prose as code. fix c25 passed access_token to search_products (no such param). Fix: cached API cheat sheet / free or batched docs / forced minimal-plan turn.
+- ffea2b5_1 (export workout note, attach to draft, send; mixed). orig_seed1 c16 [K:unneeded-subgoal-detour,J,A,B]: detour to phone contacts for recipient already in draft; 4 cells executed code different from the intended block (show_app_descriptions instead; prose fragments); truncated Gmail list; guessed nonexistent API. Success went straight to Gmail, finished at 26.
+
+BATCH PATTERNS:
+1. Docs-per-call overhead uses ~45-65% of all cells in every task; the model cites the system-prompt rule "always look at API specs before calling" even for trivial calls (complete_task, login).
+2. Per-item cells instead of loops ("small chunks / one chunk per step" cited in reasoning) turn N-item subtasks into N cells; successes batched.
+3. Truncated show_api_descriptions output for large apps (gmail, amazon) costs 1-6 cells of re-listing.
+4. Harness code-extraction artifacts: executed code differs from the model's final block (sketch code / prose from thinking / unclosed or truncated fences) — decisive in 8f79e35 fix_seed1, ffea2b5 orig_seed1.
+5. Environment read-after-write inconsistency (update_alarm then stale show_alarm) -> duplicate write -> 6/7 checks fail.
+6. Razor-thin budget margin: successes finish at 26-30 cells; 2-3 wasted cells flip the outcome. Mixed outcomes stem from small inefficiencies, not different strategies.
+7. Phone login attempted with email before phone number (2 cells each).
+8. Over-cautious / over-gathering detours (avoid move-from-wishlist; look up recipient already in draft; unnecessary date/relationship lookups).
+9. Error recovery: on place_order 422, retrying the next unexpired card succeeds; detouring to docs fails.
