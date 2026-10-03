@@ -72,6 +72,7 @@ So V2's budget exhaustion was mostly induced by the evaluate() rollback, not by 
 | **H2** (= H1origP) | disc | 1–2 | **0.85** | 0.99 | 0.506 | vs V2 **+27pp [+18, +37], p<0.001, 18 better / 1 worse**; vs H1 +2pp, p=0.85 |
 | V2noEval | disc | 1 | 0.70 | 0.72 | 0.514 | vs V2 +12pp [+3, +22], p=0.064; H1origP − V2noEval +12pp [+4, +20], p=0.067 (7 better / 1 worse) |
 | V2noEval | val | 1 | 0.68 | 0.76 | 0.500 | vs V2 +10pp [0, +20], p=0.16; H1origP − V2noEval +16pp [+6, +28], p=0.039 (10 better / 2 worse) |
+| **H2** (= H1origP) | val | 1–2 | **0.83** | 0.95 | 0.493 | vs F0old **+41.5pp [+32, +52], 32 better / 2 worse**; vs V2 **+25pp [+16, +34], p<0.001**; vs H1 **+15pp [+8, +22], p=0.003** |
 | H1origP | val | 1 | **0.84** | 0.94 | 0.505 | vs H1 **+16pp [+6, +26], p=0.015**; vs V2 +26pp, p<0.001 |
 | H1 | val | 1–2 | 0.68 | 1.00 | 0.155 | vs V2 +10.0pp [0.0, +21], p=0.15, tasks 11 better / 5 worse; vs F0old +26.5pp, p<0.001 (2 seeds) |
 
