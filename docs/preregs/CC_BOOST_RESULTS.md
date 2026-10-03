@@ -69,6 +69,7 @@ completion 0.98): the disc gain is from the harness mechanics, not from the prom
 So V2's budget exhaustion was mostly induced by the evaluate() rollback, not by docs overhead. Isolating the rollback fix: V2noEval queued.
 | H1 | val | 1 | 0.64 | 1.00 | 0.156 | vs V2 +6.0pp [-4, +17], p=0.46, tasks 10 better / 7 worse (1 seed) |
 | H1origP | disc | 1 | 0.82 | 0.98 | 0.510 | vs H1 −1pp, p=1.0 (H1 harness + original prompt) |
+| **H2** (= H1origP) | disc | 1–2 | **0.85** | 0.99 | 0.506 | vs V2 **+27pp [+18, +37], p<0.001, 18 better / 1 worse**; vs H1 +2pp, p=0.85 |
 | V2noEval | disc | 1 | 0.70 | 0.72 | 0.514 | vs V2 +12pp [+3, +22], p=0.064; H1origP − V2noEval +12pp [+4, +20], p=0.067 (7 better / 1 worse) |
 | V2noEval | val | 1 | 0.68 | 0.76 | 0.500 | vs V2 +10pp [0, +20], p=0.16; H1origP − V2noEval +16pp [+6, +28], p=0.039 (10 better / 2 worse) |
 | H1origP | val | 1 | **0.84** | 0.94 | 0.505 | vs H1 **+16pp [+6, +26], p=0.015**; vs V2 +26pp, p<0.001 |
