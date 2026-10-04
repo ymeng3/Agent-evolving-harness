@@ -117,4 +117,9 @@ Targeting contrast, 2 seeds: no advantage for the triggered check. Harm check on
 exactly this null. Value of round 2 = the diagnosed CONTENT. A targeting test needs a rule whose always-on version hurts.
 | E_H2_ANSCHK (H2 + frozen D10) | val | 1 | 0.84 | (n/a*) | 0.491 | vs H2 (3 runs) +4.7pp [−3, +12], p=0.40, 10 better / 5 worse; gate fired once (won); 1 loss still has a non-null answer (cue rule let it through) |
 
-E_H2_ANSCHK s2, E_R3, E_R3ans, H1.1origP s2: pending.
+| **E_H2_ANSCHK** (H2 + frozen D10) | val | 1–2 | **0.85** (0.84, 0.86) | (n/a*) | 0.488 | vs H2 (3 runs) +5.7pp [−1, +13], p=0.22, 11 better / 6 worse; gate fired 1 + 3 times, 4/4 won |
+
+Best configurations so far on validation: H1 + always-on answer rule 0.87 (14 cells), H2 + D10 0.85 (23 cells), H1 + D10 0.83 (14
+cells); differences among them n.s. Run-to-run spread with the answer rule: 0.84/0.86 (vs H2 alone 0.72–0.84) — consistent with D10
+removing H2's main variance source, but 2 runs are too few to test variance formally.
+E_R3, E_R3ans, H1.1origP s2: pending.
