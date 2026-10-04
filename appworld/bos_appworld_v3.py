@@ -171,12 +171,14 @@ def run_eval(patch_path, seed, tag, n_games=None, workers=4):
             for sc in setup_codes:
                 try: state["_setup_out"] = world.execute(sc)[:300]
                 except Exception as e: state["_setup_out"] = f"setup error {e}"[:300]
+            state["_instr"] = world.task.instruction   # 2026-10-04 BIT: after a replay the prompt no longer holds the task text
             for step in range(MAX_STEPS):
                 A.GUARD.check()
                 turns = hist[-H:]; msgs = base[:-1] + [{"role": "user", "content": base[-1]["content"].split("Task:")[0] + task_msg.split("\n")[-1] if False else task_msg}]
                 for a_txt, u_out in turns: msgs += [{"role": "assistant", "content": a_txt}, {"role": "user", "content": u_out}]
                 if step < len(pre):   # exact replay of a logged prefix: no LLM call, same code, environment is deterministic
-                    code = pre[step]; out = world.execute(code); err = out.startswith("Execution failed")
+                    it = pre[step]; code, shown = (it["exec"], it["shown"]) if isinstance(it, dict) else (it, None)   # BIT block_once item: execute `exec`, show `shown`
+                    out = world.execute(code); err = out.startswith("Execution failed")
                     try:
                         if mu: mu(state, hist[-1][1] if hist else "", code, out)
                     except Exception: pass
@@ -186,8 +188,8 @@ def run_eval(patch_path, seed, tag, n_games=None, workers=4):
                             try: f(code, out, state)
                             except Exception: pass
                     else: ev = world.evaluate().to_dict(); gp = sum(1 for x in ev["passes"] if x.get("label") == "no_op_fail"); gf = sum(1 for x in ev["failures"] if x.get("label") == "no_op_fail")
-                    traj.append({"step": step, "code": code, "out": out[:200], "exec_error": int(err), "gp": gp, "gf": gf, "replayed": 1})
-                    hist.append(("```python\n" + code + "\n```", "Output:\n```\n" + (out_view(code, out) + "\n```" + stamp(step) if HARNESS_H1 else out[:3000] + "\n```"))); steps += 1
+                    traj.append({"step": step, "code": code, "out": out[:200], "exec_error": int(err), "gp": gp, "gf": gf, "replayed": 1, **({"shown": shown[:300]} if shown is not None else {})})
+                    hist.append(("```python\n" + (code if shown is None else shown) + "\n```", "Output:\n```\n" + (out_view(code, out) + "\n```" + stamp(step) if HARNESS_H1 else out[:3000] + "\n```"))); steps += 1
                     if world.task_completed(): break
                     continue
                 prompt0 = msgs[-1]["content"]; prompt = prompt0; si = {"pc": 0, "calls": 1}

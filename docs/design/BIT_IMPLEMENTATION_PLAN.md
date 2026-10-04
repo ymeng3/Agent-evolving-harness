@@ -267,3 +267,18 @@ Calls are made with `proposer.chat` (`BOOST_MOCK=1` for offline runs).
 4. **Proposer cost with thinking on.** About 60–120 calls; cap concurrency at 6; run through qsub. Never enable MTP.
 5. **Admission power.** The minimum sign-flip p is 2^-n, so admission gates on the bootstrap lower bound. The validation arm is the final guard.
 6. **Patched bases.** Avoid them in round 1 by using unpatched bases.
+
+## Integration decisions after Wave 1 (binding for Wave 2)
+- `bit_common.beta_stats(a,b)` priority is now **g²/(h+λ) + κ·sd** (λ=0.25, κ=0.5): the XGBoost Newton gain plus an exploration
+  bonus. With this, consistent failures (systematic, fixable errors) rank first; the old |g|·h·var pushed them down.
+  beta_stats(1,1) = 0.5 + 0.5·sqrt(0.05).
+- **Last-step rule stays.** block_once never fires at step ≥ max_steps−1, because nothing could be fixed afterwards. Consequences:
+  - D10_ref fidelity on H1 disc s1 is 4/8 losses (e7f15ba, 4242c97, d9987f6, 77bcb81) and 0/42 wins.
+  - The Unit G gold set includes only episodes whose final complete_task step is < max_steps−1 (b6d1f70 s1 is excluded).
+- **`bit_rubric.simulate` return shape:** `{episode_eid: {"fires":[{"eid": edit_id, "edit", "k", "kind", "note", "pending"}], "hook_errors"}}`.
+  It raises `SimulationError` on timeout, an unloadable patch, or a crash; treat the candidate as invalid and feed the message back.
+  It uses spawn: scripts must use an `if __name__ == "__main__":` guard. `timeout_s=None` runs in-process (no loop protection).
+- **Generic (non-template) patches** get a tightened upper bound: setup helpers are run on a stub `apis` when the arguments are literals.
+- **`bit_tree.py` helpers** for E/D: `build_tries(eps)`, `node_at(tries, ep, depth)` returns a node with "won"/"lost" eid lists,
+  `step_key`, `common_prefix`. Filter out crashed episodes first.
+- **Validation:** `validate_spec` rejects names starting with `_cc`, global/nonlocal, yield/await, and non-ASCII identifiers.

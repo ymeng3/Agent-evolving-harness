@@ -1,0 +1,13 @@
+{
+ "name": "null_note_step5",
+ "kind": "note",
+ "cls": "control_flow",
+ "hypothesis": "Null reference: a generic, condition-free reminder shown once at step 5; any effect is a pure note/attention effect.",
+ "note": "Take a moment to re-read the task and check that every one of its requirements is covered by your plan before you finish.",
+ "detect_src": "def detect(view):\n    return view[\"step\"] >= 5\n",
+ "origin": {
+  "case_id": null,
+  "run": "ref"
+ },
+ "ref": true
+}
