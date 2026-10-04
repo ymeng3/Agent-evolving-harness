@@ -1,7 +1,8 @@
 """Rubric score R(tau) = sum_k w_k * phi_k(tau) of a set of intervention trees (MATH_FORMALIZATION_v2 §5a: predictive head).
 w_k = the within-task Newton weight from screening (screen.json "w_pred"; refs get their own w_pred too). phi_k = the tree fires anywhere in
 the episode (offline simulation). Reports, on any runs (e.g. held-out validation logs of the base harness): pooled AUC of -R for failure,
-within-task pair accuracy (same-task won vs lost pairs), and per-tree fire rates. A higher R = more evidence of failure.
+within-task pair accuracy (same-task won vs lost pairs), and per-tree fire rates. R is a SUCCESS score (w_k < 0 for trees that fire on failures):
+lower R = more evidence of failure; we report AUC of -R for failure.
 usage: python boost/bit_rubric_score.py --screen screen.json [--only-kept] --runs A,B --instr I"""
 import argparse, json, os, sys
 import numpy as np
@@ -33,8 +34,8 @@ def main():
         phi = np.array([1.0 if res[e["eid"]]["fires"] else 0.0 for e in eps]); R += c["w_pred"] * phi
         print(f"  {c['cid']:34s} w={c['w_pred']:+.3f} fires {int(phi.sum()):3d}  P|L {phi[~np.array(y)].mean() if not all(y) else float('nan'):.2f}  P|W {phi[np.array(y)].mean():.2f}")
     I, J, _ = make_pairs(eps)
-    pacc = float(np.mean([0.5 if R[i] == R[j] else float(R[j] > R[i]) for i, j in zip(I, J)])) if len(I) else float("nan")
-    print(f"rubric score R: pooled AUC(failure) = {auc(R, y):.3f}; within-task pair accuracy = {pacc:.3f} over {len(I)} same-task pairs")
+    pacc = float(np.mean([0.5 if R[i] == R[j] else float(R[i] > R[j]) for i, j in zip(I, J)])) if len(I) else float("nan")   # I = winner, J = loser
+    print(f"rubric score R (success score): AUC of -R for failure = {auc(-R, y):.3f}; within-task pair accuracy (winner scored higher) = {pacc:.3f} over {len(I)} same-task pairs")
 
 
 if __name__ == "__main__":
