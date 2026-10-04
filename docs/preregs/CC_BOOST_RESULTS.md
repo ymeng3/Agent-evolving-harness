@@ -176,5 +176,19 @@ Positive control (hand-written D10_ref, branch-at-fire on H1 disc): a = +1.000 [
 
 Detection is not enough: the best-detecting rule has the wrong mechanism (answer type) and its note makes the agent resubmit "3146",
 a = 0. P2_c13_1 came from case c13 (953b296), where the won sibling called complete_task() without an answer: test name + sibling
-contrast let the same model recover the correct mechanism = a self-proposed D10. Validation full-run arm (H1 + P2_c13_1, val s1/s2)
-queued (A22 primary metric).
+contrast let the same model recover the correct mechanism = a self-proposed D10.
+
+**Validation full-run arm (A22 primary): H1 + self-proposed P2_c13_1, val seeds 1, 2 = 0.82 / 0.84 -> 0.830.**
+
+| arm (val) | runs | success | Δ vs H1 [90% CI] | p | G Δ |
+|---|---|---|---|---|---|
+| H1 | 2 | 0.680 | | | |
+| **H1 + self-proposed rule (BIT R0, P2_c13_1)** | 2 | **0.830** | **+15pp [+4, +26]** | **0.043** | −1.4pp (n.s.) |
+| H1 + hand-written D10 | 2 | 0.830 | +15pp [+5, +25] | 0.033 | +2.9pp |
+| self − hand | | | 0.0pp [−7, +7] | 1.0 | −4.4pp (p=0.10) |
+
+The rule fired in 11 + 8 val episodes, 14 of which were won. **First complete self-evolution loop:** the same Qwen proposes the rule
+from discovery hindsight (failed-test text + sibling), statistics only screen and admit (branch-at-fire), and the rule transfers
+to unseen validation tasks with the same gain as the hand-written rubric. Caveat: the privileged hindsight includes environment test
+texts on discovery (not ground-truth values); P1 without them failed. Slightly lower G than hand D10 (it blocks a little more
+broadly) -- watch in round 2.
