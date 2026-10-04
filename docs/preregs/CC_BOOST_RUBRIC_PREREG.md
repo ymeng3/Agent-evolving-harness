@@ -285,3 +285,12 @@ A23 (2026-10-04, before any proposer run). BIT round 1 (docs/design/BOOSTED_INTE
 - Admission: branch-at-fire a-bar over firing states, task-level bootstrap 90% lower bound > 0, mean > 0, >= 3 tasks; Holm p
   reported. Admitted rules then get a validation full-run arm (A22 metric hierarchy). Real round: same pipeline on the H2 disc base.
 - Ablations of the proposer: --outcome-detail won (no G), --no-sibling.
+
+A24 (2026-10-05, before P2/P3 run). BIT round R0 results so far: (i) positive control D10_ref branch-at-fire on H1 disc: a-bar =
++1.000 [1.0, 1.0], 8 states / 6 tasks, p = 0.03 (pipeline validated); (ii) P1 (outcome + G + won sibling, no test info; exposure 8/8
+gold cases shown): D10 NOT rediscovered (best recall 0.125); the self-proposer attributes the gold failures to plausible but wrong
+mechanisms (address type, colour choice, retries) -- it shares the misconception that produced them ("the answer should be the
+order ID"). Hypothesis: self-teaching needs privileged information the student lacks (OPSD-like). Next two proposer runs, identical
+to P1 except the privileged hindsight: P2 = + failed-test requirement texts (bit_failed_tests.py, exact replay; e.g. "assert answers
+match."); P3 = + the assertion message (may contain ground-truth values, e.g. '3146' == 'null'; strongest privilege). Same rediscovery
+check (A23). Report P1 vs P2 vs P3 as the "how much privilege does self-evolution need" ablation; P3 is flagged as GT-leaking.
