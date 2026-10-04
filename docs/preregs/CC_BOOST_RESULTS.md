@@ -124,4 +124,7 @@ cells); differences among them n.s. Run-to-run spread with the answer rule: 0.84
 removing H2's main variance source, but 2 runs are too few to test variance formally.
 | E_R3 (H1.1 + answer gate D10' + cart check D11) | val | 1 | 0.80 | (n/a*) | 0.487 | vs H2 +0.7pp, p=1.0; answer gate fired 3 (2 won), cart check fired 0 |
 
-E_R3 s2, E_R3ans s1/s2, H1.1origP s2: pending.
+| E_R3ans (H1.1 + answer gate D10' only) | val | 1 | 0.84 | (n/a*) | 0.485 | vs H2 +4.7pp, p=0.37; gate fired 3 (2 won); vs E_H2_ANSCHK −1pp, p=1.0 |
+
+All answer-rule variants on the H2 base land at 0.84–0.86 (≈ +5pp over H2's mean, each n.s. with ≤ 2 runs) — consistent with the
+dilution law: trigger rate s ≈ 3–4% under H2 vs 14% under H1. E_R3 s2, E_R3ans s2, H1.1origP s2: pending.
