@@ -192,3 +192,15 @@ from discovery hindsight (failed-test text + sibling), statistics only screen an
 to unseen validation tasks with the same gain as the hand-written rubric. Caveat: the privileged hindsight includes environment test
 texts on discovery (not ground-truth values); P1 without them failed. Slightly lower G than hand D10 (it blocks a little more
 broadly) -- watch in round 2.
+
+
+### Rubric score R = sum_k w_k phi_k (MATH v2 §5a predictive head; kept P2 trees + D10_ref, w = within-task Newton weight)
+| logs scored | relation to training | AUC of -R for failure | within-task pair acc. |
+|---|---|---|---|
+| H1 disc s1+s2 | in-sample | 0.797 | 0.857 (7 pairs) |
+| **H1 val s1+s2** | **held-out tasks, same harness** | **0.898** | **0.875 (8 pairs)** |
+| H2 val (3 runs) | held-out tasks, different harness | 0.532 | 0.481 (26 pairs) |
+
+The boosted rubric works as a scorer on unseen tasks of the harness whose residuals it was fit to, and does not transfer to a
+different base harness whose failures are of other kinds -- trees are residual models of a specific h (motivates re-fitting
+residuals each boosting round, and the low-rank task x harness evaluation of MATH v2 §7).
