@@ -115,4 +115,6 @@ with ~40% fewer steps (14.4 vs 23.8 cells) -> same success at much lower inferen
 Targeting contrast, 2 seeds: no advantage for the triggered check. Harm check on question tasks (6 per run): H1 5/6, 6/6; E_ANSCHK
 5/6, 5/6; E_ANSGEN 6/6, 5/6 -> the always-on rule does not hurt question tasks, so c(σ) ≥ 0 in non-trigger states and MATH §5 predicts
 exactly this null. Value of round 2 = the diagnosed CONTENT. A targeting test needs a rule whose always-on version hurts.
-E_H2_ANSCHK (A21), E_R3, E_R3ans, H1.1origP s2: pending.
+| E_H2_ANSCHK (H2 + frozen D10) | val | 1 | 0.84 | (n/a*) | 0.491 | vs H2 (3 runs) +4.7pp [−3, +12], p=0.40, 10 better / 5 worse; gate fired once (won); 1 loss still has a non-null answer (cue rule let it through) |
+
+E_H2_ANSCHK s2, E_R3, E_R3ans, H1.1origP s2: pending.
