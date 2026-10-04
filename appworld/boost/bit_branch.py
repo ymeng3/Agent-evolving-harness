@@ -179,6 +179,14 @@ def build(a):
     print(f"{len(jobs)} jobs -> {os.path.join(a.out, 'jobs.txt')} (server paths under {srv})")
 
 
+def post_p_pos(rows, B=20000, seed=0):
+    """A25: P(mean over states of (p_cand - p_none) > 0) with independent Beta(1+wins, 1+losses) posteriors per arm and state."""
+    if not rows: return None
+    rng = np.random.default_rng(seed)
+    pc = np.stack([rng.beta(1 + r["cw"], 1 + r["cn"] - r["cw"], B) for r in rows]); pn = np.stack([rng.beta(1 + r["nw"], 1 + r["nn"] - r["nw"], B) for r in rows])
+    return float(((pc - pn).mean(0) > 0).mean())
+
+
 # ---------------------------------------------------------------- readout
 def load_result(path):
     """-> {tid: (won, G, traj)} for non-crashed tasks, or None if the file does not exist yet."""
@@ -225,6 +233,7 @@ def readout(a):
                 cw = [r[t] for r in arm["cand"] if t in r]; nw = [r[t] for r in arm["none"] if t in r]
                 if not cw or not nw: missing += 1; continue
                 rows.append({"task": t, "seed": dd["seed"], "logged_won": m["logged_won"],
+                             "cw": int(sum(x[0] for x in cw)), "cn": len(cw), "nw": int(sum(x[0] for x in nw)), "nn": len(nw),
                              "d": np.mean([x[0] for x in cw]) - np.mean([x[0] for x in nw]),
                              "dG": np.mean([x[1] for x in cw]) - np.mean([x[1] for x in nw]),
                              "cand": np.mean([x[0] for x in cw]), "none": np.mean([x[0] for x in nw])})
@@ -244,21 +253,26 @@ def readout(a):
                     "win_cand": float(np.mean([r["cand"] for r in rows])) if rows else None,
                     "win_none": float(np.mean([r["none"] for r in rows])) if rows else None,
                     "manip": (float(np.mean(manip)) if manip else None), "s": s, "s_src": s_src,
-                    "tau": (s * st["mean"] if s is not None and st["mean"] is not None else None), "spec": c["spec"]})
+                    "tau": (s * st["mean"] if s is not None and st["mean"] is not None else None), "spec": c["spec"],
+                    "p_pos": post_p_pos(rows), "memo_flag": bool(sc.get("memo_flag"))})
     have = [r for r in res if r["p"] is not None]
     for r, h in zip(have, holm([r["p"] for r in have]) if have else []): r["p_holm"] = h
     f = lambda v, fmt="+.3f": "   -  " if v is None else format(v, fmt)
     print(f"{'cidx':4s} {'cid':26s} {'kind':10s} st/miss tasks  a_bar  [90% CI]          p   holm | dG     | lost-split won-split | manip   tau  adm")
     for r in res:
-        r["admitted"] = bool(r["lo90"] is not None and r["lo90"] > 0 and r["a_bar"] > 0 and r["n_tasks"] >= 3)
+        if a.rule == "posterior":   # prereg A25 (rounds >= R1)
+            r["admitted"] = bool(r["p_pos"] is not None and r["p_pos"] >= 0.90 and (r["a_bar"] or 0) > 0 and r["n_states"] >= 4 and not r["memo_flag"])
+        else:                       # prereg A23 (R0)
+            r["admitted"] = bool(r["lo90"] is not None and r["lo90"] > 0 and r["a_bar"] > 0 and r["n_tasks"] >= 3)
         print(f"{r['cidx']:4s} {r['cid'][:26]:26s} {r['kind']:10s} {r['n_states']:3d}/{r['n_missing']:<3d} {r['n_tasks']:4d} {f(r['a_bar'])} "
               f"[{f(r['lo90'])},{f(r['hi90'])}] {f(r['p'], '.3f')} {f(r.get('p_holm'), '.3f')} | {f(r['G']['mean'])} | "
               f"{f(r['lost_split']['mean'])}(n={r['lost_split']['n']}) {f(r['won_split']['mean'])}(n={r['won_split']['n']}) | "
-              f"{f(r['manip'], '.2f')} {f(r['tau'])} {'YES' if r['admitted'] else 'no'}{' (ref)' if r['ref'] else ''}")
+              f"{f(r['manip'], '.2f')} {f(r['tau'])} {'YES' if r['admitted'] else 'no'}{' (ref)' if r['ref'] else ''}  P(a>0)={f(r['p_pos'], '.2f')}{' MEMO' if r['memo_flag'] else ''}")
     adm = sorted([r for r in res if r["admitted"] and (a.admit_refs or not r["ref"])], key=lambda r: -r["a_bar"])
     out = a.out or os.path.join(a.build, "admitted.json")
     json.dump({"params": {"build": a.build, "results": a.results, "screen": a.screen, "alpha": a.alpha, "round": man["round"],
-                          "rule": "boot90_lo > 0 and mean > 0 and n_tasks >= 3", "admit_refs": a.admit_refs},
+                          "rule": ("P(a>0) >= 0.90 (state-level Beta posteriors) and mean > 0 and n_states >= 4 and no memo flag" if a.rule == "posterior"
+                                   else "boot90_lo > 0 and mean > 0 and n_tasks >= 3"), "admit_refs": a.admit_refs},
                "results": [{k: v for k, v in r.items() if k != "spec"} for r in res],
                "admitted": [{"cid": r["cid"], "a_bar": r["a_bar"], "lo90": r["lo90"], "tau": r["tau"], "p_holm": r.get("p_holm"),
                              "spec": r["spec"]} for r in adm]}, open(out, "w"), indent=1)
@@ -298,6 +312,7 @@ def main():
     r = sub.add_parser("readout"); r.add_argument("--build", required=True); r.add_argument("--results", default="results")
     r.add_argument("--screen", default=""); r.add_argument("--alpha", type=float, default=0.10); r.add_argument("--out", default="")
     r.add_argument("--admit-refs", action="store_true", help="let reference specs (positive controls) into admitted.json")
+    r.add_argument("--rule", choices=["bootstrap", "posterior"], default="bootstrap", help="A23 bootstrap rule (R0) or A25 posterior rule (>= R1)")
     v = sub.add_parser("valarm"); v.add_argument("--admitted", required=True); v.add_argument("--round", required=True)
     v.add_argument("--env-file", required=True); v.add_argument("--val-tasks", default="tasks_challenge_val50.json")
     v.add_argument("--seeds", default="1,2"); v.add_argument("--base-val", default="results/CC_H1_F0_val_seed1.json,results/CC_H1_F0_val_seed2.json")
