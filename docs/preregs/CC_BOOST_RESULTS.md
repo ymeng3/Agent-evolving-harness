@@ -142,3 +142,13 @@ dilution law: trigger rate s ≈ 3–4% under H2 vs 14% under H1.
 G is not a uniformly "more sensitive" success: it counts state tests only, not the answer-match test, so H1 (answer-format losses,
 states correct) has HIGHER G than H2 despite lower success. Metric choice must be fixed in advance (A22). Cart check never fired on val.
 The refined (val-informed) cue rule did not beat frozen D10. H1.1 not adopted.
+
+
+## Branch-at-fire: frozen D10 at its firing states in H2 val runs (2026-10-04)
+14 states (H2 runs where an action-classified task passed a non-null answer); replay to just before the final complete_task, then
+continue with / without ANSWER_CHECK_H1, 2 reps each (1 rep for some ctl states). a-bar (all) = +0.21; **6 of 14 states are at the
+last step** (k >= 29: blocking cannot help, the frozen D10 has no last-step rule); **actionable states (k < 29, n = 8): a-bar = +0.31**
+(30e8586 +1.0, fa327a6 +1.0, f6936d4 +0.5, 6d59d90 +0.5, d6d8cb6 0, d37c235 0 / 0 / -0.5). d37c235 is a real false positive: a
+list-of-codes answer on a task without a question cue was blocked as a ">8-word sentence" and the agent then omitted the answer
+(c(sigma) < 0 instance). After one block the agent sometimes re-submits the same order id (block-once is weak for an insistent agent;
+intervention strength = the learning rate eta of BIT §5). Consistent with tau = s * a: s ~ 4% x a ~ 0.3-1 -> +1-4pp.
