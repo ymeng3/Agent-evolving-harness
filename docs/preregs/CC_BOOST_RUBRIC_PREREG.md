@@ -269,3 +269,19 @@ tau_k = s_k a_k), (3) detector within-task IC (admission criterion, MATH §3). P
 over all runs of an arm. Next design: BOOSTED_INTERVENTION_TREES_v0 with a hindsight self-proposer (same Qwen, privileged = full
 trajectory + outcome + successful siblings [+ failed-test names as an ablation], discovery split only; detectors restricted to
 prefix-observable features) -- OPSD-like: privileged self teaches the unprivileged self.
+
+A23 (2026-10-04, before any proposer run). BIT round 1 (docs/design/BOOSTED_INTERVENTION_TREES_v0.md, BIT_IMPLEMENTATION_PLAN.md).
+- Benchmark round on H1 disc (CC_H1_F0_disc_seed1/2): the hindsight self-proposer = the same Qwen3.8-27B backbone (thinking on),
+  shown the top tree cases (failed run + closest won sibling + outcome + G; reasoning tails marked as not visible to detectors); the
+  prompt contains NO description of complete_task's answer semantics (only case data, which may include the agent's own reasoning).
+- Frozen gold set appworld/boost/bit_refs/d10_gold_H1disc.json: 8 lost episodes (s1: e7f15ba, 4242c97, d9987f6, 77bcb81; s2:
+  e7f15ba, 4242c97, 690d51b, 953b296) whose final complete_task passes a non-None answer on a task without a question cue, at a
+  step < 29 (b6d1f70 s1 excluded: last step). "Rediscovers D10" = recall >= 0.6, precision >= 0.5, <= 2 won episodes fired, and the
+  fire is at the final complete_task step (block_once) or <= 2 steps before (note). Report exposure (# shown gold cases), and
+  rediscovery at: any valid candidate / screening-kept / top-1 by gain_within / top-1 by value.
+- Screening keep score: value = 0.5 * (# fired failures) - 0.2 * (# fired successes) (expected net recovered episodes; the plan's
+  (sum g)^2/(sum h + lam) grows with coverage and ranks always-firing detectors first, so it is reported but not used to keep).
+  Keep = top 4 by within-task pair gain (> 0) + top 4 by value (> 0) with P(fire|won) <= 0.05.
+- Admission: branch-at-fire a-bar over firing states, task-level bootstrap 90% lower bound > 0, mean > 0, >= 3 tasks; Holm p
+  reported. Admitted rules then get a validation full-run arm (A22 metric hierarchy). Real round: same pipeline on the H2 disc base.
+- Ablations of the proposer: --outcome-detail won (no G), --no-sibling.

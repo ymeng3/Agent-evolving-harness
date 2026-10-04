@@ -1,0 +1,130 @@
+{
+ "note": "D10 rediscovery gold set, frozen before any proposer run (BIT_IMPLEMENTATION_PLAN Unit G + 'Integration decisions after Wave 1'). Built by bit_bench_d10.py gold: lost, non-crashed episodes whose final executed cell (last non-empty, non-no_exec step) calls apis.supervisor.complete_task with a non-None answer (ast parse of the logged executed code), on a task with no question cue (patches_ccdiag/R3_H2.py rule verbatim, on instructions_all100.json), and whose final step k < max_steps-1 (block_once never fires at the last step). Cross-checked against simulate(compile_patch([D10_ref])).",
+ "runs": [
+  "CC_H1_F0_disc_seed1.json",
+  "CC_H1_F0_disc_seed2.json"
+ ],
+ "rule": {
+  "recall": 0.6,
+  "precision": 0.5,
+  "max_won_fired": 2,
+  "note_lead_steps": 2
+ },
+ "gold": [
+  "CC_H1_F0_disc_s1:e7f15ba_1",
+  "CC_H1_F0_disc_s1:4242c97_1",
+  "CC_H1_F0_disc_s1:d9987f6_1",
+  "CC_H1_F0_disc_s1:77bcb81_1",
+  "CC_H1_F0_disc_s2:e7f15ba_1",
+  "CC_H1_F0_disc_s2:4242c97_1",
+  "CC_H1_F0_disc_s2:690d51b_1",
+  "CC_H1_F0_disc_s2:953b296_1"
+ ],
+ "final_k": {
+  "CC_H1_F0_disc_s1:e7f15ba_1": 12,
+  "CC_H1_F0_disc_s1:4242c97_1": 15,
+  "CC_H1_F0_disc_s1:d9987f6_1": 15,
+  "CC_H1_F0_disc_s1:77bcb81_1": 9,
+  "CC_H1_F0_disc_s2:e7f15ba_1": 16,
+  "CC_H1_F0_disc_s2:4242c97_1": 14,
+  "CC_H1_F0_disc_s2:690d51b_1": 11,
+  "CC_H1_F0_disc_s2:953b296_1": 21
+ },
+ "per_run": {
+  "CC_H1_F0_disc_s1": [
+   "e7f15ba_1",
+   "4242c97_1",
+   "d9987f6_1",
+   "77bcb81_1"
+  ],
+  "CC_H1_F0_disc_s2": [
+   "e7f15ba_1",
+   "4242c97_1",
+   "690d51b_1",
+   "953b296_1"
+  ]
+ },
+ "excluded_last_step": [
+  "CC_H1_F0_disc_s1:b6d1f70_1"
+ ],
+ "parser_rows": [
+  {
+   "eid": "CC_H1_F0_disc_s1:e7f15ba_1",
+   "k_final": 12,
+   "answer": "3146",
+   "max_steps": 30
+  },
+  {
+   "eid": "CC_H1_F0_disc_s1:4242c97_1",
+   "k_final": 15,
+   "answer": "3146",
+   "max_steps": 30
+  },
+  {
+   "eid": "CC_H1_F0_disc_s1:d9987f6_1",
+   "k_final": 15,
+   "answer": "3146",
+   "max_steps": 30
+  },
+  {
+   "eid": "CC_H1_F0_disc_s1:b6d1f70_1",
+   "k_final": 29,
+   "answer": "\"2 identical Jabra Elite 75t earbuds (rating 3.9, 8 reviews) ordered: #3147 to p",
+   "max_steps": 30
+  },
+  {
+   "eid": "CC_H1_F0_disc_s1:77bcb81_1",
+   "k_final": 9,
+   "answer": "3146",
+   "max_steps": 30
+  },
+  {
+   "eid": "CC_H1_F0_disc_s2:e7f15ba_1",
+   "k_final": 16,
+   "answer": "3146",
+   "max_steps": 30
+  },
+  {
+   "eid": "CC_H1_F0_disc_s2:4242c97_1",
+   "k_final": 14,
+   "answer": "\"Order placed successfully. Order ID: 3146. 2x Hanes Men's ComfortSoft Short Sle",
+   "max_steps": 30
+  },
+  {
+   "eid": "CC_H1_F0_disc_s2:690d51b_1",
+   "k_final": 11,
+   "answer": "3146",
+   "max_steps": 30
+  },
+  {
+   "eid": "CC_H1_F0_disc_s2:953b296_1",
+   "k_final": 21,
+   "answer": "\"Order #3152 placed: Hanes Men's Tagless Crewneck Undershirt (extra-large), $14.",
+   "max_steps": 30
+  }
+ ],
+ "cross_check": {
+  "d10_ref_fired_lost": [
+   "CC_H1_F0_disc_s1:4242c97_1",
+   "CC_H1_F0_disc_s1:77bcb81_1",
+   "CC_H1_F0_disc_s1:d9987f6_1",
+   "CC_H1_F0_disc_s1:e7f15ba_1",
+   "CC_H1_F0_disc_s2:4242c97_1",
+   "CC_H1_F0_disc_s2:690d51b_1",
+   "CC_H1_F0_disc_s2:953b296_1",
+   "CC_H1_F0_disc_s2:e7f15ba_1"
+  ],
+  "d10_ref_fired_won": [],
+  "fire_k": {
+   "CC_H1_F0_disc_s1:4242c97_1": 15,
+   "CC_H1_F0_disc_s1:77bcb81_1": 9,
+   "CC_H1_F0_disc_s1:d9987f6_1": 15,
+   "CC_H1_F0_disc_s1:e7f15ba_1": 12,
+   "CC_H1_F0_disc_s2:4242c97_1": 14,
+   "CC_H1_F0_disc_s2:690d51b_1": 11,
+   "CC_H1_F0_disc_s2:953b296_1": 21,
+   "CC_H1_F0_disc_s2:e7f15ba_1": 16
+  },
+  "agree": true
+ }
+}
