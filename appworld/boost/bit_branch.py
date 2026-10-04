@@ -106,6 +106,15 @@ def build(a):
     print(f"base: {len(eps_all)} episodes, {len(eps)} usable (not crashed, no replayed steps), {sum(e['won'] for e in eps)} won")
     max_steps = max(json.load(open(p, encoding="utf-8")).get("max_steps", 30) for p in a.runs.split(",") if p)
     specs = resolve_specs(kept, screen_c, a.cands, a.refs)
+    # boosting round >= 2: the base harness already contains admitted trees (h_r = h_0 + k_1 + ...). Both arms must run with them:
+    # none arm / block cand arm -> --patch <round>_BASE.py; note cand arm -> base trees + the candidate compiled together (its detector
+    # fires at the first live step after the replayed prefix, as in the simulation).
+    base_specs = [json.load(open(x, encoding="utf-8")) for x in a.base_specs.split(",") if x]
+    base_patch = None; pdir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "patches_ccbit")
+    if base_specs:
+        os.makedirs(pdir, exist_ok=True); base_patch = f"patches_ccbit/{a.round}_BASE.py"
+        open(os.path.join(pdir, f"{a.round}_BASE.py"), "w", encoding="utf-8").write(BR.compile_patch(base_specs, max_steps))
+        print(f"base trees: {[b.get('name') for b in base_specs]} -> {base_patch}")
     env = read_env(a.env_file); srv = server_out_dir(a)
     qsub = a.qsub or ("bash " + posixpath.join(posixpath.dirname(a.server_root.rstrip("/")), "tools", "queue", "qsub.sh"))
     os.makedirs(a.out, exist_ok=True); byeid = {e["eid"]: e for e in eps}
@@ -153,8 +162,12 @@ def build(a):
                 for rep in range(a.reps):
                     tag = f"CC_BIT_{a.round}_{ctag}_{arm}_o{seed}_r{rep}"
                     ev = [f"BOS_TASKS={sd}/tasks.json", f"BOS_REPLAY={sd}/replay_{arm}.json"]
-                    patch = "none"
-                    if arm == "cand" and kind == "note": ev.append(f"BOS_HINTS={sd}/hints_cand.json"); patch = NOTE_PATCH
+                    patch = base_patch or "none"
+                    if arm == "cand" and kind == "note":
+                        if base_patch:
+                            patch = f"patches_ccbit/{a.round}_{ctag}_CAND.py"
+                            open(os.path.join(pdir, f"{a.round}_{ctag}_CAND.py"), "w", encoding="utf-8").write(BR.compile_patch(base_specs + [spec], max_steps))
+                        else: ev.append(f"BOS_HINTS={sd}/hints_cand.json"); patch = NOTE_PATCH
                     jobs.append(" ".join([qsub, tag] + env + ev + ["python", "bos_appworld_v3.py", "eval", "--patch", patch,
                                                                     "--seed", str(seed), "--tag", tag, "--workers", str(a.workers)]))
                     manifest["jobs"].append({"tag": tag, "cid": cid, "cidx": ctag, "arm": arm, "seed": seed, "rep": rep, "dir": name})
@@ -257,7 +270,8 @@ def valarm(a):
     import bit_rubric as BR
     d = json.load(open(a.admitted, encoding="utf-8")); adm = sorted(d["admitted"], key=lambda r: -(r["a_bar"] or 0))
     if not adm: sys.exit("no admitted specs: nothing to validate")
-    src = BR.compile_patch([r["spec"] for r in adm], a.max_steps)
+    base_specs = [json.load(open(x, encoding="utf-8")) for x in a.base_specs.split(",") if x]   # trees already in the base (round >= 2) first
+    src = BR.compile_patch(base_specs + [r["spec"] for r in adm], a.max_steps)
     rel = f"patches_ccbit/{a.round}_ADMITTED.py"; path = os.path.join(AW, *rel.split("/"))
     os.makedirs(os.path.dirname(path), exist_ok=True); open(path, "w", encoding="utf-8", newline="\n").write(src)
     print(f"# compiled {len(adm)} spec(s) {[r['cid'] for r in adm]} -> {path} (sync to the server before queueing)")
@@ -280,6 +294,7 @@ def main():
     b.add_argument("--force-cid", action="append", default=[]); b.add_argument("--server-root", default=SERVER_ROOT)
     b.add_argument("--server-out", default=""); b.add_argument("--qsub", default=""); b.add_argument("--workers", type=int, default=8)
     b.add_argument("--timeout", type=float, default=300)
+    b.add_argument("--base-specs", default="", help="comma list of spec JSONs of trees already in the base harness (boosting round >= 2)")
     r = sub.add_parser("readout"); r.add_argument("--build", required=True); r.add_argument("--results", default="results")
     r.add_argument("--screen", default=""); r.add_argument("--alpha", type=float, default=0.10); r.add_argument("--out", default="")
     r.add_argument("--admit-refs", action="store_true", help="let reference specs (positive controls) into admitted.json")
@@ -288,6 +303,7 @@ def main():
     v.add_argument("--seeds", default="1,2"); v.add_argument("--base-val", default="results/CC_H1_F0_val_seed1.json,results/CC_H1_F0_val_seed2.json")
     v.add_argument("--base-name", default="BASE"); v.add_argument("--max-steps", type=int, default=30)
     v.add_argument("--server-root", default=SERVER_ROOT); v.add_argument("--qsub", default=""); v.add_argument("--workers", type=int, default=8)
+    v.add_argument("--base-specs", default="", help="comma list of spec JSONs of trees already in the base harness (compiled first)")
     a = ap.parse_args()
     {"build": build, "readout": readout, "valarm": valarm}[a.cmd](a)
 
