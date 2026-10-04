@@ -9,7 +9,7 @@ import argparse, json, os, sys
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument("--tree", required=True); ap.add_argument("--runs", required=True)
     ap.add_argument("--out", required=True); ap.add_argument("--with-trace", action="store_true"); a = ap.parse_args()
-    sys.argv = sys.argv[:1]
+    sys.argv = sys.argv[:1]; sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     import bos_appworld_v3 as V
     from appworld import AppWorld
     tree = json.load(open(a.tree)); want = {c["lost"] for c in tree["cases"]}; out = {}
