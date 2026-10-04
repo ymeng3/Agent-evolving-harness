@@ -110,4 +110,9 @@ failure mode — exactly the D10 target. Expected side effect of the R3 answer g
 
 D10 confirmed on 2 seeds (clean, frozen before val). Precision of the trigger is 14/14. H1 + D10 reaches the H2 level (0.83 vs 0.79)
 with ~40% fewer steps (14.4 vs 23.8 cells) -> same success at much lower inference cost.
-E_ANSGEN s2, H1.1origP s2, E_R3, E_R3ans: pending.
+| **E_ANSGEN** (H1 + same rule always on) | val | 1–2 | **0.87** | 1.00 | 0.149 | vs H1 **+19pp [+8, +30], p=0.009, 16 better / 3 worse**; **E_ANSCHK − E_ANSGEN −4pp [−11, +4], p=0.53** |
+
+Targeting contrast, 2 seeds: no advantage for the triggered check. Harm check on question tasks (6 per run): H1 5/6, 6/6; E_ANSCHK
+5/6, 5/6; E_ANSGEN 6/6, 5/6 -> the always-on rule does not hurt question tasks, so c(σ) ≥ 0 in non-trigger states and MATH §5 predicts
+exactly this null. Value of round 2 = the diagnosed CONTENT. A targeting test needs a rule whose always-on version hurts.
+E_H2_ANSCHK (A21), E_R3, E_R3ans, H1.1origP s2: pending.
