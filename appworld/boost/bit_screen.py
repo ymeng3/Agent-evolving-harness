@@ -76,6 +76,11 @@ def score(cand, res, eps, tries, I, J, shown_tasks, shown_text, lam, max_steps):
         left.append(max_steps - k); to_end.append(len(e["steps"]) - d)
         fires.append({"eid": e["eid"], "k": k, "won": e["won"], "node": v["id"], "g": round(st["g"], 4), "h": round(st["h"], 4)})
     won = [e["won"] for e in eps]; gw, ndisc, dr = pair_gain(phi, I, J, lam); ic, lo, hi = within_ic(phi, eps)
+    # MATH v2: predictive leaf (Newton step on the within-task pairwise logistic loss at F=0: g=-1/2, h=1/4) -> rubric weight w_pred;
+    # value_post = first-order gain with the node posterior V = 1 + g instead of the realized outcome (prop. 2)
+    dd = np.asarray(phi, float)[np.asarray(I, int)] - np.asarray(phi, float)[np.asarray(J, int)] if len(I) else np.zeros(0)
+    w_pred = float(-(-0.5 * dd.sum()) / (0.25 * (dd ** 2).sum() + lam))
+    value_post = float(sum(-f["g"] * RHO - (1 + f["g"]) * C_HARM for f in fires))
     unshown = [i for i, e in enumerate(eps) if e["task"] not in shown_tasks]
     fired_tasks = {eps[i]["task"] for i in np.flatnonzero(phi)}
     hits = memo_hits(cand["spec"], shown_text) if not cand.get("ref") else []
@@ -87,6 +92,7 @@ def score(cand, res, eps, tries, I, J, shown_tasks, shown_text, lam, max_steps):
             "ic": ic, "ic_lo90": lo, "ic_hi90": hi, "gain_within": gw if dr > 0 else 0.0, "gain_within_signed": gw, "n_discordant": ndisc,
             "dir": dr, "gain_raw": (G * G / (H + lam)) if fires else 0.0, "sum_g": G, "sum_h": H,
             # expected net recovered episodes (MATH §2 tau = s*a with a prior, §5 harm): rho per fired failure - c per fired success
+            "w_pred": w_pred, "value_post": value_post,
             "value": RHO * sum(1 for f in fires if not f["won"]) - C_HARM * sum(1 for f in fires if f["won"]),
             "med_steps_left": _median(left), "med_steps_to_end": _median(to_end), "hook_errors": errs,
             "unshown": _rates(phi[unshown], [won[i] for i in unshown]),
