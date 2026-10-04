@@ -152,3 +152,29 @@ last step** (k >= 29: blocking cannot help, the frozen D10 has no last-step rule
 list-of-codes answer on a task without a question cue was blocked as a ">8-word sentence" and the agent then omitted the answer
 (c(sigma) < 0 instance). After one block the agent sometimes re-submits the same order id (block-once is weak for an insistent agent;
 intervention strength = the learning rate eta of BIT §5). Consistent with tau = s * a: s ~ 4% x a ~ 0.3-1 -> +1-4pp.
+
+
+## BIT round R0 (H1 disc base): hindsight self-proposer = the same Qwen (2026-10-05)
+
+| run | privileged hindsight | valid / total | rediscovers D10 (A23, detection) | best detection recall / precision |
+|---|---|---|---|---|
+| P1 | outcome + G + won sibling | 15 / 28 | **no** | 0.125 / 0.5 |
+| P2 | + failed-test requirement text ("assert answers match.") | 22 / 32 | **yes** | 0.75 / 1.0 (P2_c01_2) |
+| P3 | + assertion message (GT-leaking: '3146' == 'null') | 15 / 29 | yes | 1.0 / 0.8 (P3_c12_1) |
+
+P1: the self-proposer explains the gold failures with plausible but wrong mechanisms; it shares the misconception ("the answer should
+be the order ID") -> self-blindness without privileged information.
+Positive control (hand-written D10_ref, branch-at-fire on H1 disc): a = +1.000 [1.0, 1.0], 8 states / 6 tasks, p = 0.03.
+**P2 branch-at-fire (kept candidates; partial, 4 of 8 measured):**
+
+| cid | rule (self-proposed) | a-bar [90% CI] | p | lost states | won states | admitted |
+|---|---|---|---|---|---|---|
+| P2_c13_1 | block_answer_on_action_task: "for action tasks call complete_task() WITHOUT an answer" | **+0.61 [+0.28, +0.89]** | 0.031 | **+1.0 (n=6)** | −0.17 (n=3) | **yes** |
+| P2_c09_2 | complete_task with a bare number -> "quote it" | 0.00 | 1.0 | 0 (n=5) | 0 (n=4) | no |
+| P2_c01_2 | bare int answer on order task -> "use str(order_id)" (best detection) | 0.00 | 1.0 | 0 (n=5) | – | no |
+| P2_c01_1 | note after place_order: check answer type | 0.00 | 1.0 | +0.08 | −0.07 | no |
+
+Detection is not enough: the best-detecting rule has the wrong mechanism (answer type) and its note makes the agent resubmit "3146",
+a = 0. P2_c13_1 came from case c13 (953b296), where the won sibling called complete_task() without an answer: test name + sibling
+contrast let the same model recover the correct mechanism = a self-proposed D10. Validation full-run arm (H1 + P2_c13_1, val s1/s2)
+queued (A22 primary metric).
