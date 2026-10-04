@@ -122,4 +122,6 @@ exactly this null. Value of round 2 = the diagnosed CONTENT. A targeting test ne
 Best configurations so far on validation: H1 + always-on answer rule 0.87 (14 cells), H2 + D10 0.85 (23 cells), H1 + D10 0.83 (14
 cells); differences among them n.s. Run-to-run spread with the answer rule: 0.84/0.86 (vs H2 alone 0.72–0.84) — consistent with D10
 removing H2's main variance source, but 2 runs are too few to test variance formally.
-E_R3, E_R3ans, H1.1origP s2: pending.
+| E_R3 (H1.1 + answer gate D10' + cart check D11) | val | 1 | 0.80 | (n/a*) | 0.487 | vs H2 +0.7pp, p=1.0; answer gate fired 3 (2 won), cart check fired 0 |
+
+E_R3 s2, E_R3ans s1/s2, H1.1origP s2: pending.
