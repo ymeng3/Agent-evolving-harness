@@ -127,4 +127,18 @@ removing H2's main variance source, but 2 runs are too few to test variance form
 | E_R3ans (H1.1 + answer gate D10' only) | val | 1 | 0.84 | (n/a*) | 0.485 | vs H2 +4.7pp, p=0.37; gate fired 3 (2 won); vs E_H2_ANSCHK −1pp, p=1.0 |
 
 All answer-rule variants on the H2 base land at 0.84–0.86 (≈ +5pp over H2's mean, each n.s. with ≤ 2 runs) — consistent with the
-dilution law: trigger rate s ≈ 3–4% under H2 vs 14% under H1. E_R3 s2, E_R3ans s2, H1.1origP s2: pending.
+dilution law: trigger rate s ≈ 3–4% under H2 vs 14% under H1. 
+**Final round-2/3 table (val, paired by task; boost/multi_metric_readout.py; G = fraction of state tests passed):**
+
+| arm (base H2: 3 runs, 0.793 / G 0.900) | runs | success Δ (p) | G Δ (p) |
+|---|---|---|---|
+| H2 + frozen D10 | 2 | +5.7pp (0.22) | +2.7pp (0.40) |
+| E_R3ans (refined gate) | 2 | +1.7pp (0.70) | +0.1pp (0.98) |
+| E_R3 (gate + cart) | 2 | −1.3pp (0.77) | −2.4pp (0.36) |
+| H1.1origP (truncation marker) | 2 | −7.3pp (0.09) | −2.2pp (0.49) |
+| (base H1: 0.680 / G 0.938) H1 + D10 | 2 | **+15pp (0.033)** | +2.9pp (0.051) |
+| H1 + always-on answer rule | 2 | **+19pp (0.009)** | +2.5pp (0.19) |
+
+G is not a uniformly "more sensitive" success: it counts state tests only, not the answer-match test, so H1 (answer-format losses,
+states correct) has HIGHER G than H2 despite lower success. Metric choice must be fixed in advance (A22). Cart check never fired on val.
+The refined (val-informed) cue rule did not beat frozen D10. H1.1 not adopted.

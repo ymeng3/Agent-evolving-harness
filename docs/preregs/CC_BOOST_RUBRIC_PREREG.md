@@ -261,3 +261,11 @@ A21 (2026-10-04, before it runs). E_H2_ANSCHK = H2 (H1 harness + original prompt
 A15; clean, not val-informed), validation seeds 1, 2. Primary: E_H2_ANSCHK - H2 (3 runs: 0.84, 0.82, 0.72). Motivation: in H2 the main
 residual and the main source of run-to-run variance is the D10 class (2, 3, 7 losses per run). Prediction: mean up ~+5-8pp and lower
 variance across runs. Queued ahead of E_R3 / E_R3ans (which use the val-informed refined cue rule on H1.1) and H1.1origP s2.
+
+A22 (2026-10-04). Metric hierarchy for all further arms, fixed in advance; all metrics always reported, Holm-corrected across the
+secondary family: PRIMARY task-level paired success. SECONDARY (1) G = fraction of state tests passed (partial credit; note it excludes
+the answer-match test), (2) branch-at-fire local effect a_k (same-state paired continuations; the powered test for diluted rubrics,
+tau_k = s_k a_k), (3) detector within-task IC (admission criterion, MATH §3). POOLED: mixed-effects logistic with task random intercepts
+over all runs of an arm. Next design: BOOSTED_INTERVENTION_TREES_v0 with a hindsight self-proposer (same Qwen, privileged = full
+trajectory + outcome + successful siblings [+ failed-test names as an ablation], discovery split only; detectors restricted to
+prefix-observable features) -- OPSD-like: privileged self teaches the unprivileged self.
