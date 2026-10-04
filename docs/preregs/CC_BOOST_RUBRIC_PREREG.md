@@ -294,3 +294,11 @@ order ID"). Hypothesis: self-teaching needs privileged information the student l
 to P1 except the privileged hindsight: P2 = + failed-test requirement texts (bit_failed_tests.py, exact replay; e.g. "assert answers
 match."); P3 = + the assertion message (may contain ground-truth values, e.g. '3146' == 'null'; strongest privilege). Same rediscovery
 check (A23). Report P1 vs P2 vs P3 as the "how much privilege does self-evolution need" ablation; P3 is flagged as GT-leaking.
+
+A25 (2026-10-05). (1) Admission rule for rounds >= R1 (R0 decisions unchanged; no R0 candidate was blocked by the task-count rule):
+the >= 3-task requirement guarded against a degenerate task-cluster bootstrap with 1-2 clusters. Replace it by: state-level
+Beta-binomial posterior of a (per-arm Beta(1,1) on continuation wins, difference by Monte Carlo) with P(a > 0) >= 0.90 and
+mean a > 0, >= 4 firing states, and no memorization flag; the task-cluster bootstrap CI and Holm p are still reported.
+(2) Boosting iteration 2: base h1 = H1 + R0P2_ADMITTED (the admitted self-proposed tree P2_c13_1), discovery seeds 1, 2
+(CC_BIT_R1base_disc) -> rebuild the memory tree and residuals under h1 -> proposer P2-style (failed-test texts + sibling) ->
+screen -> branch admission (rule (1)) -> validation arm of h1 + new trees vs h1.
