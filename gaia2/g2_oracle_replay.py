@@ -14,7 +14,7 @@ ended and turns remain -> pull; stub judge for the turn conditions), so waits ar
 
 usage (server, are-env python, PYTHONHASHSEED=0 is set by re-exec):
   python gaia2/g2_oracle_replay.py pick --per execution=20,search=20,adaptability=4,time=4 [--split gaia2/data/tasks_disc.json] --out T.json
-  python gaia2/g2_oracle_replay.py build --tasks T.json --out R.json [--seed 1] [--workers 8]
+  python gaia2/g2_oracle_replay.py build --tasks T.json --out R.json [--seed 1] [--workers 8] [--perturb]
   BOS_TASKS=T.json BOS_REPLAY=R.json G2_STEPS=150 python gaia2/bos_gaia2.py eval --replay-only --patch none --seed 1 --tag CC_G2_oracle --workers 8
   python gaia2/g2_oracle_replay.py report --result gaia2/results/CC_G2_oracle_seed1.json --build R.json"""
 import argparse, ast, json, math, os, re, subprocess, sys, time
@@ -25,6 +25,8 @@ if HERE not in sys.path: sys.path.insert(0, HERE)
 PH_RE = re.compile(r"^\{\{(.*?)\}\}$")
 SMTU = "AgentUserInterface__send_message_to_user"
 MAX_WAIT_CELLS = 12   # per group
+PERTURB_ARGS = ("content",)   # --perturb: free-text args the soft (LLM) checkers read
+PERTURB_SUFFIX = " Let me know if you need anything else."
 
 
 def _literal(v):
@@ -64,8 +66,9 @@ def oracle_groups(env):
     return groups, base_o, {"n_oracle_agent_events": len(rows), "n_turn_missing": n_missing}
 
 
-def group_code(g, var_of, referenced, env_return):
-    """App__fn(**args) lines for one group. -> (code, problems)."""
+def group_code(g, var_of, referenced, env_return, perturb=False):
+    """App__fn(**args) lines for one group. -> (code, problems). perturb: append a neutral sentence to free-text args, so that the
+    judge's equality short-cut fails and its LLM soft checkers are exercised (an exact oracle copy never reaches the LLM)."""
     lines, probs = [], []
     for eid, tool, raw, res in g["events"]:
         parts = []
@@ -80,6 +83,7 @@ def group_code(g, var_of, referenced, env_return):
                     if expr is None: probs.append(f"unresolved placeholder {v} ({tool}.{k})"); expr = _literal(res.get(k))
                     if expr is None: expr = "None"
             else:
+                if perturb and k in PERTURB_ARGS and isinstance(v, str) and v.strip(): v = v.rstrip() + PERTURB_SUFFIX
                 expr = _literal(v)
                 if expr is None: probs.append(f"non-literal arg {tool}.{k}={str(v)[:60]}"); expr = repr(str(v))
             parts.append(f"{k}={expr}")
@@ -90,7 +94,7 @@ def group_code(g, var_of, referenced, env_return):
     return "\n".join(lines), probs
 
 
-def build_one(tid, seed=1, gen_seconds=1.0, cell_timeout=30.0):
+def build_one(tid, seed=1, gen_seconds=1.0, cell_timeout=30.0, perturb=False):
     """Drive a G2Env (stub judge) through the oracle cells exactly as bos_gaia2.play's run_cell would; -> (items, report)."""
     import g2_env as E
     from g2_exec import CodeExecutor
@@ -140,7 +144,7 @@ def build_one(tid, seed=1, gen_seconds=1.0, cell_timeout=30.0):
             if w < 1 or ended(): break
             run_cell(f"SystemApp__wait_for_notification(timeout={w})"); n_wait += 1
         if ended(): status = f"env ended while waiting for group {gi}"; break
-        code, pr = group_code(g, var_of, referenced, env_return); probs += pr
+        code, pr = group_code(g, var_of, referenced, env_return, perturb); probs += pr
         out, t_exec = run_cell(code); drift.append(round(t_exec - target, 3))
         if out.startswith("Execution failed"): probs.append(f"group {gi} failed: {out[-200:]}")
         if any(tool == SMTU for _, tool, _, _ in g["events"]): base_r.setdefault(t + 1, t_exec)
@@ -153,8 +157,8 @@ def build_one(tid, seed=1, gen_seconds=1.0, cell_timeout=30.0):
 
 
 def _build_worker(args):
-    tid, seed, gen, ct = args
-    try: return tid, *build_one(tid, seed, gen, ct)
+    tid, seed, gen, ct, pt = args
+    try: return tid, *build_one(tid, seed, gen, ct, pt)
     except Exception as e:
         import traceback
         return tid, None, {"tid": tid, "status": f"crash {type(e).__name__}: {str(e)[:200]}", "tb": traceback.format_exc()[-1500:]}
@@ -164,7 +168,7 @@ def cmd_build(a):
     import multiprocessing as mp
     from concurrent.futures import ProcessPoolExecutor, as_completed
     tasks = json.load(open(a.tasks, encoding="utf-8")); items, reps = {}, {}
-    jobs = [(t, a.seed, a.gen_seconds, a.cell_timeout) for t in tasks]
+    jobs = [(t, a.seed, a.gen_seconds, a.cell_timeout, a.perturb) for t in tasks]
     with ProcessPoolExecutor(max_workers=a.workers, mp_context=mp.get_context("spawn"), max_tasks_per_child=1) as ex:
         for fut in as_completed([ex.submit(_build_worker, j) for j in jobs]):
             tid, it, rep = fut.result(); reps[tid] = rep
@@ -219,6 +223,7 @@ def main():
     p = sp.add_parser("build"); p.add_argument("--tasks", required=True); p.add_argument("--out", required=True); p.add_argument("--seed", type=int, default=1)
     p.add_argument("--workers", type=int, default=8); p.add_argument("--gen-seconds", type=float, default=float(os.environ.get("G2_GEN_SECONDS", "1.0")))
     p.add_argument("--cell-timeout", type=float, default=float(os.environ.get("G2_CELL_TIMEOUT", "30")))
+    p.add_argument("--perturb", action="store_true", help=f"append {PERTURB_SUFFIX!r} to {PERTURB_ARGS} args (exercises the LLM judge)")
     p = sp.add_parser("pick"); p.add_argument("--per", default="execution=20,search=20,adaptability=4,time=4")
     p.add_argument("--split", default=os.path.join(HERE, "data", "tasks_disc.json")); p.add_argument("--out", required=True)
     p = sp.add_parser("report"); p.add_argument("--result", required=True); p.add_argument("--build", default=None)
