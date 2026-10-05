@@ -310,3 +310,11 @@ More samples: h1 disc seeds 3, 4 (more firing states) and a 4-rep rebuild for R1
 rank-1 model boost/bit_lowrank.py -- y ~ Bern(sigmoid(alpha_s + beta*cand)), alpha_s ~ N(logit V0_s, 1.5^2) with V0_s from the memory
 tree, the logged episode as a free none sample, all builds pooled per state, exact grid posterior. Admission for R1 (replacing the
 per-state difference in A25): P(beta > 0) >= 0.90, posterior mean a-bar > 0, >= 4 states, no memo flag; the naive difference is reported.
+
+A27 (2026-10-05). Active sampling (boost/bit_active.py), used from round R2 on. (i) Task level: after the base discovery runs,
+re-run only the top-12 tasks by score_t = |g_t| h_t / (n_t + 1) + 0.5 sd_t (Beta posterior per task under the current base;
+boundary tasks with few runs first; known GT-issue tasks excluded) with 3 extra seeds, to give the self-proposer same-task won/lost
+contrasts and the screen more firing states. (ii) Candidate level: candidates whose pooled posterior P(beta>0) is in [0.3, 0.95]
+with >= 2 states get extra branch repetitions, ranked by posterior width (top-two style); decided candidates get none.
+Admission rule unchanged (A26). SWE-bench Pro is not runnable on the current box (inside a docker container, no container runtime,
+61 GB free); Gaia2 / ARE (pure python simulator) is the candidate second benchmark, pending a replay-determinism feasibility check.

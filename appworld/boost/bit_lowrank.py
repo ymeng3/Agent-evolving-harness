@@ -72,7 +72,8 @@ def posterior(states, tau=1.5, sb=2.0, gb=np.linspace(-6, 6, 601), ga=np.linspac
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument("--builds", required=True); ap.add_argument("--results", default="results")
     ap.add_argument("--runs", required=True); ap.add_argument("--instr", required=True); ap.add_argument("--cid", default="")
-    ap.add_argument("--use-logged", type=int, default=1); ap.add_argument("--tau", type=float, default=1.5); a = ap.parse_args()
+    ap.add_argument("--use-logged", type=int, default=1); ap.add_argument("--tau", type=float, default=1.5)
+    ap.add_argument("--json-out", default="", help="write rows (for bit_active.py cands)"); a = ap.parse_args(); out_rows = []
     import bit_tree as BT
     eps = [e for e in load_episodes(a.runs.split(","), json.load(open(a.instr, encoding="utf-8"))) if not e["crashed"] and not e["has_replay"]]
     node_prior.tries = BT.build_tries(eps)
@@ -89,8 +90,11 @@ def main():
         naive = np.mean([s["cw"] / s["cn"] - s["nw"] / s["nn"] for s in states])
         r = posterior(states, tau=a.tau)
         n_c = sum(s["cn"] for s in states); n_n = sum(s["nn"] for s in states)
+        out_rows.append({"cid": cid, "states": len(states), "naive": float(naive), **r})
         print(f"{cid:28s} states {len(states):3d} (cand runs {n_c}, none runs {n_n})  naive a = {naive:+.3f}  |  pooled: a = {r['a_bar']:+.3f} "
               f"[{r['a_lo90']:+.3f},{r['a_hi90']:+.3f}]  beta = {r['beta']:+.2f} [{r['beta_lo90']:+.2f},{r['beta_hi90']:+.2f}]  P(beta>0) = {r['p_pos']:.3f}")
+
+    if a.json_out: json.dump(out_rows, open(a.json_out, "w"), indent=1)
 
 
 if __name__ == "__main__":
