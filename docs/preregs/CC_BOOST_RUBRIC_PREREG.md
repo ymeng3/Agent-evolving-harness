@@ -302,3 +302,11 @@ mean a > 0, >= 4 firing states, and no memorization flag; the task-cluster boots
 (2) Boosting iteration 2: base h1 = H1 + R0P2_ADMITTED (the admitted self-proposed tree P2_c13_1), discovery seeds 1, 2
 (CC_BIT_R1base_disc) -> rebuild the memory tree and residuals under h1 -> proposer P2-style (failed-test texts + sibling) ->
 screen -> branch admission (rule (1)) -> validation arm of h1 + new trees vs h1.
+
+A26 (2026-10-05, before the extra samples are read). Round R1 branch results (2 reps, posterior rule A25): nothing admitted; the
+general candidates were underpowered (R1P2_c20_1 a = +0.13, P = 0.64, 6 states; R1P2_c02_1 a = 0.00, 7 states, lost +0.5 / won -0.5);
+the large effects were single-task, memo-flagged fixes (correctly blocked; R1P2_c09_1 targets the ba46d91 ground-truth rounding quirk).
+More samples: h1 disc seeds 3, 4 (more firing states) and a 4-rep rebuild for R1P2_c20_1 and R1P2_c02_1 (R1X). Estimation: pooled
+rank-1 model boost/bit_lowrank.py -- y ~ Bern(sigmoid(alpha_s + beta*cand)), alpha_s ~ N(logit V0_s, 1.5^2) with V0_s from the memory
+tree, the logged episode as a free none sample, all builds pooled per state, exact grid posterior. Admission for R1 (replacing the
+per-state difference in A25): P(beta > 0) >= 0.90, posterior mean a-bar > 0, >= 4 states, no memo flag; the naive difference is reported.
