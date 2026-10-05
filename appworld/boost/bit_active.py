@@ -10,8 +10,9 @@ Two allocation problems, both driven by the posterior instead of uniform seeds:
           candidates with P(beta>0) in [lo, hi] (undecided) and >= 2 states, ranked by posterior sd of a-bar.
 usage:
   python boost/bit_active.py tasks --runs A,B --instr I --n-tasks 12 --seeds 3,4,5 --env-file E --tag CC_BIT_R2act_disc --out bit/R2/active_tasks
-  python boost/bit_active.py cands --lowrank-json bit/R1/lowrank.json [--lo 0.3 --hi 0.95]"""
-import argparse, json, os, sys
+  python boost/bit_active.py cands --lowrank-json bit/R1/lowrank.json [--lo 0.3 --hi 0.95]
+  Gaia2: tasks --harness-cmd "env -u PYTHONPATH /root/autodl-tmp/cc/are-env/bin/python ../gaia2/bos_gaia2.py" (cwd appworld/, no cd)"""
+import argparse, json, os, shlex, sys
 import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from bit_common import load_episodes
@@ -34,6 +35,7 @@ def main():
     t = sub.add_parser("tasks"); t.add_argument("--runs", required=True); t.add_argument("--instr", required=True)
     t.add_argument("--n-tasks", type=int, default=12); t.add_argument("--seeds", default="3,4,5"); t.add_argument("--env-file", default="")
     t.add_argument("--tag", default="CC_BIT_act_disc"); t.add_argument("--out", default=""); t.add_argument("--exclude", default="")
+    t.add_argument("--harness-cmd", default="python bos_appworld_v3.py", help="harness command of the job lines (shlex-split)")
     c = sub.add_parser("cands"); c.add_argument("--lowrank-json", required=True); c.add_argument("--lo", type=float, default=0.3)
     c.add_argument("--hi", type=float, default=0.95); c.add_argument("--k", type=int, default=3)
     a = ap.parse_args()
@@ -49,7 +51,8 @@ def main():
                 env = [x for x in open(a.env_file).read().split() if "=" in x and not x.startswith(("BOS_TASKS=", "BOS_REPLAY=", "BOS_HINTS="))]
                 patch = next((open(a.env_file).read().split()[i + 1] for i, x in enumerate(open(a.env_file).read().split()) if x == "--patch"), "none")
                 srv = os.path.join("/root/autodl-tmp/cc/Agent-evolving-harness/appworld", a.out).replace("\\", "/")
-                lines = [" ".join(env + [f"BOS_TASKS={srv}/tasks.json", "python", "bos_appworld_v3.py", "eval", "--patch", patch, "--seed", s,
+                cmd = [shlex.quote(x) for x in shlex.split(a.harness_cmd)]
+                lines = [" ".join(env + [f"BOS_TASKS={srv}/tasks.json"] + cmd + ["eval", "--patch", patch, "--seed", s,
                                           "--tag", a.tag, "--workers", "8"]) for s in a.seeds.split(",")]
                 open(os.path.join(a.out, "jobs.txt"), "w", newline="\n").write("".join(l + "\n" for l in lines)); print(f"{len(lines)} jobs -> {a.out}/jobs.txt")
     else:

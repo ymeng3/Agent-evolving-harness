@@ -1,29 +1,38 @@
 """BIT common helpers (docs/design/BIT_IMPLEMENTATION_PLAN.md, Unit A): episode loading, same-task (winner, loser) pairs, the pairwise
 split gain at margin 0, the within-task IC with a task bootstrap, Beta node statistics, and the sign-flip / bootstrap helpers.
 Episode: {"eid": f"{tag}_s{seed}:{tid}", "task", "tag", "seed", "won", "G", "instr", "harness_h1", "crashed", "has_replay",
-          "steps": [{"k", "code", "out", "err", "no_exec", "replayed", "resp"}]}   (code = executed code, out <= 200 chars as logged)"""
+          "bench", "max_steps", "steps": [{"k", "code", "out", "err", "no_exec", "replayed", "resp"}]}   (code = executed code, out <= 200
+          chars as logged; bench = the run's "bench" ("appworld" if absent); Gaia2 episodes also carry the per-episode G2_KEYS)"""
 import collections, itertools, json
 import numpy as np
+
+G2_KEYS = ("end_reason", "nb_turns", "turns_done", "rationale", "rationale_diag")   # per-episode lists of a Gaia2 run (GAIA2_ADAPTER_PLAN 2)
 
 
 def load_episodes(paths, instr):
     """paths: list (or comma string) of run JSONs; instr: {tid: instruction} or a path to such a JSON. Crashed episodes are kept
-    (crashed=True) so callers decide; goal-check fields other than G are dropped."""
+    (crashed=True) so callers decide; goal-check fields other than G are dropped. A tid missing from instr falls back to the run's own
+    per-episode "instr" list (Gaia2 runs log it)."""
     if isinstance(paths, str): paths = [p for p in paths.split(",") if p]
-    if isinstance(instr, str): instr = json.load(open(instr, encoding="utf-8"))
-    eps = []
+    if isinstance(instr, str): instr = json.load(open(instr, encoding="utf-8")) if instr else {}
+    instr = instr or {}; eps = []
     for p in paths:
         d = json.load(open(p, encoding="utf-8")); n = len(d["games"])
         crashed = d.get("crashed") or [None] * n; Gs = d.get("G") or [None] * n
-        for t, w, tr, cr, G in zip(d["games"], d["won"], d["traj"], crashed, Gs):
+        bench = d.get("bench", "appworld"); own = d.get("instr") if isinstance(d.get("instr"), list) else [None] * n
+        for i, (t, w, tr, cr, G) in enumerate(zip(d["games"], d["won"], d["traj"], crashed, Gs)):
             steps = []
             for s in tr or []:
                 code = s.get("code") or ""; out = s.get("out") or ""; rep = bool(s.get("replayed"))
                 steps.append({"k": s["step"], "code": code, "out": out, "err": out.startswith("Execution failed"),
                               "no_exec": bool(s.get("no_exec")) or (not code and not rep), "replayed": rep, "resp": s.get("resp") or ""})
-            eps.append({"eid": f"{d['tag']}_s{d['seed']}:{t}", "task": t, "tag": d["tag"], "seed": d["seed"], "won": bool(w), "G": G,
-                        "instr": instr.get(t, ""), "harness_h1": bool(d.get("harness_h1")), "crashed": bool(cr),
-                        "has_replay": any(s["replayed"] for s in steps), "steps": steps})
+            ep = {"eid": f"{d['tag']}_s{d['seed']}:{t}", "task": t, "tag": d["tag"], "seed": d["seed"], "won": bool(w), "G": G,
+                  "instr": instr.get(t) or (own[i] if i < len(own) else None) or "", "harness_h1": bool(d.get("harness_h1")), "crashed": bool(cr),
+                  "has_replay": any(s["replayed"] for s in steps), "bench": bench, "max_steps": d.get("max_steps"), "steps": steps}
+            if bench == "gaia2":
+                for k in G2_KEYS:
+                    v = d.get(k); ep[k] = v[i] if isinstance(v, list) and i < len(v) else None
+            eps.append(ep)
     return eps
 
 

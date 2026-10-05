@@ -6,7 +6,8 @@ compiled and self-checked by offline replay (must fire on the case's lost episod
 verbatim, <= 2 retries per candidate. One JSONL line per candidate; compiled patches go to appworld/patches_ccbit/<cid>.py.
 usage: python boost/bit_propose.py --tree bit/<R>/tree.json --runs A.json,B.json --instr instructions_all100.json --out cands_<run>.jsonl
            --run-id P1 [--n-cases 20 --k-per-case 2 --no-sibling --outcome-detail {won,G} --failed-tests ft.json --workers 6
-           --max-tokens 16000 --patch-dir patches_ccbit --dry-run]
+           --max-tokens 16000 --patch-dir patches_ccbit --bench {auto,appworld,gaia2} --dry-run]
+       Gaia2: --bench gaia2 (auto = from the runs' "bench"); --failed-tests = gaia2/g2_failed_checks.py output; --max-steps defaults to the runs'.
 env: BOS_BASE_URL, BOS_API_KEY, BOS_MODEL (proposer.chat), BOOST_EFFORT (optional), BOOST_TIMEOUT; BOOST_MOCK=1 = offline mock replies."""
 import argparse, json, os, re, sys, threading, time
 from concurrent.futures import ThreadPoolExecutor
@@ -44,6 +45,29 @@ def detect(view):
     return bool(calls[0]) and calls[0] == calls[1] == calls[2]
 ```'''
 
+# Gaia2 (--bench gaia2; docs/design/GAIA2_ADAPTER_PLAN.md U6). Same rule: the example is format only and never a send-message / answer rule.
+SYSTEM_G2 = ("You review logs of an LLM agent (a model like yourself) solving Gaia2 scenarios on a simulated phone. You find the step and the "
+             "mechanism that made a run fail, and you write small, general detector programs that let the harness warn the agent at the right "
+             "moment in future runs.")
+
+EXAMPLE_G2 = '''NAME: same_failing_tool_three_times
+KIND: note
+CLASS: control_flow
+HYPOTHESIS: When the last three executed cells called the same tool and all three failed, the agent is looping on wrong arguments; pointing it to the tool's documentation breaks the loop.
+```python
+NOTE = "Your last three cells called the same tool and each one failed. Repeating the call will fail again: print the tool's documentation with help('App__tool') (its full name) and fix the arguments before calling it again."
+def detect(view):
+    import re
+    last = view["cells"][-3:]
+    if len(last) < 3 or not all(c["error"] for c in last):
+        return False
+    calls = [tuple(re.findall(r"\\b[A-Z]\\w*__\\w+(?=\\s*\\()", c["code"])) for c in last]
+    return bool(calls[0]) and calls[0] == calls[1] == calls[2]
+```'''
+
+END_REASON = {"turns_done": "every turn was answered", "env_stopped": "the environment stopped the episode (the verifier rejected a turn)",
+              "time_up": "the scenario time ran out", "budget": "the step budget ran out", "crashed": "the harness crashed"}
+
 
 # ---------------------------------------------------------------- prompt
 def _clip(s, n):
@@ -75,27 +99,55 @@ def fmt_step(s):
     return "\n".join(lines)
 
 
-def _outcome(ep, detail, max_steps):
-    n = len(ep["steps"]); done = any("complete_task" in (s["code"] or "") for s in ep["steps"] if not s["no_exec"])
+def _outcome(ep, detail, max_steps, bench="appworld"):
+    n = len(ep["steps"]); marker = "send_message_to_user" if bench == "gaia2" else "complete_task"
+    done = any(marker in (s["code"] or "") for s in ep["steps"] if not s["no_exec"])
     o = "SUCCEEDED" if ep["won"] else "FAILED"
     if detail == "G" and ep.get("G") is not None: o += f", G = {ep['G']:.2f}"
+    if bench == "gaia2":
+        td, nt, er = ep.get("turns_done"), ep.get("nb_turns"), ep.get("end_reason")
+        turns = f"{td if td is not None else '?'} of {nt if nt is not None else '?'} turn(s) done; "
+        return (f"{o}; {n} of {max_steps} steps used; {turns}" + ("it sent a message to the user" if done else "it never sent a message to the user")
+                + f"; end_reason = {er or '?'}" + (f" ({END_REASON[er]})." if er in END_REASON else "."))
     return f"{o}; {n} of {max_steps} steps used; " + ("it called complete_task." if done else "it never called complete_task (the budget ran out).")
 
 
-def build_prompt(case, eps_by, max_steps=30, k=2, outcome_detail="G", no_sibling=False, failed_tests=None):
+def _harness_g2(max_steps):
+    return ("## 1. The harness\n"
+            "An LLM agent solves Gaia2 scenarios: it is the assistant on a simulated phone with apps (email, messaging, calendar, contacts, "
+            "shopping, cabs, files, ...). At each step the agent writes ONE python code cell that calls the apps' tools as functions named "
+            "`App__tool(arg=...)` (`help(\"App__tool\")` prints a tool's documentation); the harness executes it and shows the output, followed by "
+            "the new notifications (user messages, environment events) with their simulated timestamps. Every step advances the simulated clock. "
+            "A turn ends when the agent calls `AgentUserInterface__send_message_to_user(content=...)`; in multi-turn scenarios the next user "
+            "message then arrives, and time-based events arrive while the agent waits with `SystemApp__wait_for_notification(timeout=...)`. "
+            f"The budget is {max_steps} steps (step indices 0..{max_steps - 1}). The episode ends when every turn is done, when the verifier "
+            "rejects a turn (the environment stops), when the scenario time runs out, or when the budget runs out.\n"
+            "The verifier compares the agent's WRITE actions (tool calls that change the apps' state; reads are free) with an oracle's: first the "
+            "number of write calls per tool must match the oracle's, then the arguments of every oracle action must be matched by an agent "
+            "action (exact checks, partly an LLM judge for free text), in a consistent order and timing.\n"
+            "You can add a HARNESS RULE: a detector `detect(view)` plus a short NOTE. The harness evaluates the detector during future episodes "
+            "(of any scenario) and, when it fires, shows the note to the agent.")
+
+
+def build_prompt(case, eps_by, max_steps=30, k=2, outcome_detail="G", no_sibling=False, failed_tests=None, bench="appworld"):
     lost = eps_by[case["lost"]]; won = None if no_sibling or not case.get("won") else eps_by[case["won"]]
     fd = common_prefix(lost, won) if won else 0
+    g2 = bench == "gaia2"
     P = []
-    P.append("## 1. The harness\n"
-             "An LLM agent solves AppWorld tasks: everyday tasks over simulated apps (amazon, gmail, venmo, spotify, phone, file_system, ...) that "
-             "it reaches from python through `apis.<app>.<api>(...)`. At each step the agent writes ONE python code cell; the harness executes it "
-             f"and shows the output. The budget is {max_steps} steps (step indices 0..{max_steps - 1}). The episode ends when the agent calls "
-             "`apis.supervisor.complete_task(...)` or when the budget runs out; the environment's tests then check the final state of the apps.\n"
-             "You can add a HARNESS RULE: a detector `detect(view)` plus a short NOTE. The harness evaluates the detector during future episodes "
-             "(of any task) and, when it fires, shows the note to the agent.")
+    if g2: P.append(_harness_g2(max_steps))
+    else:
+        P.append("## 1. The harness\n"
+                 "An LLM agent solves AppWorld tasks: everyday tasks over simulated apps (amazon, gmail, venmo, spotify, phone, file_system, ...) that "
+                 "it reaches from python through `apis.<app>.<api>(...)`. At each step the agent writes ONE python code cell; the harness executes it "
+                 f"and shows the output. The budget is {max_steps} steps (step indices 0..{max_steps - 1}). The episode ends when the agent calls "
+                 "`apis.supervisor.complete_task(...)` or when the budget runs out; the environment's tests then check the final state of the apps.\n"
+                 "You can add a HARNESS RULE: a detector `detect(view)` plus a short NOTE. The harness evaluates the detector during future episodes "
+                 "(of any task) and, when it fires, shows the note to the agent.")
+    hidden = "the verifier, the oracle" if g2 else "the evaluation tests"
     P.append("## 2. What the detector sees (hard rule)\n`detect` receives only this `view` (exact schema):\n```python\n" + VIEW_SCHEMA.replace('"max_steps": 30', f'"max_steps": {max_steps}') + "\n```\n"
+             + ("Gaia2: `out` is the cell's output followed by the notifications that arrived during the step; `task` is the first user message.\n" if g2 else "") +
              "HARD RULE: detect sees nothing but `view`; it must be decidable from the prefix observed so far. It cannot see the agent's reasoning, "
-             "outputs beyond their first 200 characters, the task id, the outcome, the evaluation tests, or anything that happens later in the "
+             f"outputs beyond their first 200 characters, the task id, the outcome, {hidden}, or anything that happens later in the "
              "episode. It must be a pure function of view: no I/O; imports only inside detect and only from re, json, math, random, collections, "
              "itertools, string; open/exec/eval/getattr/setattr/globals and dunder names are forbidden.")
     P.append("## 3. Kinds\n"
@@ -110,14 +162,19 @@ def build_prompt(case, eps_by, max_steps=30, k=2, outcome_detail="G", no_sibling
              "CLASS: `control_flow` (how the agent works: order of steps, checks, retries, budget use) or `task_knowledge` (facts about the apps, "
              "APIs or task conventions that the agent got wrong).")
     C = [f"## 4. The case\nTask instruction: {lost['instr']}"]
-    if outcome_detail == "G":
+    if outcome_detail == "G" and g2:
+        C.append("G = write-action overlap with the oracle (1 = same counts): the sum over tools of min(agent writes, oracle writes), divided by "
+                 "the larger of the two totals. The scenario counts as solved only if the verifier accepts every turn; G = 1.00 means the write "
+                 "counts match, but arguments, order or timing can still fail.")
+    elif outcome_detail == "G":
         C.append("G = the fraction of the task's evaluation tests that pass on the final state; the task counts as solved only if every test "
                  "passes (G = 1.00). A G close to 1 means only a few checks failed.")
-    C.append(f"FAILED run: {_outcome(lost, outcome_detail, max_steps)}")
-    if won: C.append(f"SUCCESSFUL run of the same task: {_outcome(won, outcome_detail, max_steps)}")
+    C.append(f"FAILED run: {_outcome(lost, outcome_detail, max_steps, bench)}")
+    if won: C.append(f"SUCCESSFUL run of the same task: {_outcome(won, outcome_detail, max_steps, bench)}")
     elif not no_sibling: C.append("(No successful run of this task is available.)")
     ft = (failed_tests or {}).get(case["lost"])
-    if ft: C.append("Evaluation tests that FAILED in the failed run:\n" + "\n".join(f"- {t}" for t in ft))
+    if ft and g2: C.append("Verifier rationale (privileged: neither the agent nor the detector sees it) for the failed run:\n" + "\n".join(f"- {t}" for t in ft))
+    elif ft: C.append("Evaluation tests that FAILED in the failed run:\n" + "\n".join(f"- {t}" for t in ft))
     C.append("Notation: [step k] = harness step index k (= view['step'] when that step is about to run); code is cut at "
              f"{CODE_CHARS} chars, outputs at {OUT_CHARS} chars (the detector sees the same 200 chars).")
     if won and fd > 0:
@@ -145,7 +202,7 @@ def build_prompt(case, eps_by, max_steps=30, k=2, outcome_detail="G", no_sibling
              "HYPOTHESIS: <one or two sentences: the mechanism, and why the note helps>\n```python\nNOTE = \"...\"\ndef detect(view):\n    ...\n```\n"
              "Only `NOTE = \"...\"` and `def detect(view):` may appear at the top level of the block; put imports and helpers inside detect. "
              "detect returns False/None (no fire), True (fire with NOTE) or a non-empty string (fire with that string as the note).\n\n"
-             "Format example (an unrelated mechanism, shown for the format only):\n" + EXAMPLE)
+             "Format example (an unrelated mechanism, shown for the format only):\n" + (EXAMPLE_G2 if g2 else EXAMPLE))
     return "\n\n".join(P)
 
 
@@ -246,7 +303,8 @@ def _usage_sum(uses):
 def run_case(ci, case, eps_by, a, failed_tests, write):
     lost = eps_by[case["lost"]]; won = eps_by[case["won"]] if case.get("won") else None
     prompt_won = None if a.no_sibling else won
-    msgs = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": build_prompt(case, eps_by, a.max_steps, a.k_per_case, a.outcome_detail, a.no_sibling, failed_tests)}]
+    msgs = [{"role": "system", "content": SYSTEM_G2 if a.bench == "gaia2" else SYSTEM},
+            {"role": "user", "content": build_prompt(case, eps_by, a.max_steps, a.k_per_case, a.outcome_detail, a.no_sibling, failed_tests, a.bench)}]
     t0 = time.time(); text, uses = ask(msgs, a.max_tokens, ci); specs = R.parse_proposals(text); conv = msgs + [{"role": "assistant", "content": text}]; n_whole = 0
     while not specs and n_whole < MAX_RETRIES:   # nothing parseable at all: ask again for the whole set
         n_whole += 1; conv = conv + [{"role": "user", "content": NONE_FOUND.format(k=a.k_per_case)}]
@@ -348,9 +406,11 @@ def main():
     ap.add_argument("--instr", required=True); ap.add_argument("--out", required=True, help="cands_<run>.jsonl")
     ap.add_argument("--run-id", required=True); ap.add_argument("--n-cases", type=int, default=20); ap.add_argument("--k-per-case", type=int, default=2)
     ap.add_argument("--no-sibling", action="store_true", help="ablation: do not show the won sibling (its self-check is recorded, not enforced)")
-    ap.add_argument("--outcome-detail", choices=["won", "G"], default="G"); ap.add_argument("--failed-tests", default="", help="json {eid: [test names]}")
+    ap.add_argument("--outcome-detail", choices=["won", "G"], default="G"); ap.add_argument("--failed-tests", default="", help="json {eid: [test names | verifier lines]}")
     ap.add_argument("--workers", type=int, default=6); ap.add_argument("--max-tokens", type=int, default=16000)
-    ap.add_argument("--max-steps", type=int, default=30); ap.add_argument("--sim-timeout", type=float, default=60)
+    ap.add_argument("--max-steps", type=int, default=None, help="default 30 (AppWorld) / the runs' max_steps (Gaia2)")
+    ap.add_argument("--sim-timeout", type=float, default=60)
+    ap.add_argument("--bench", choices=["auto", "appworld", "gaia2"], default="auto", help="harness description; auto = the runs' \"bench\"")
     ap.add_argument("--patch-dir", default=os.path.join(AW, "patches_ccbit")); ap.add_argument("--cases", default="", help="comma list of case ids (overrides --n-cases)")
     ap.add_argument("--dry-run", action="store_true", help="print the first case's full prompt and exit (no calls)")
     a = ap.parse_args()
@@ -358,14 +418,17 @@ def main():
     tree = json.load(open(a.tree, encoding="utf-8"))
     cases = [c for c in tree["cases"] if c["case_id"] in a.cases.split(",")] if a.cases else tree["cases"][:a.n_cases]
     eps_by = {e["eid"]: e for e in load_episodes(a.runs, a.instr) if not e["crashed"]}
+    if a.bench == "auto": a.bench = "gaia2" if any(e.get("bench") == "gaia2" for e in eps_by.values()) else "appworld"
+    if a.max_steps is None:
+        a.max_steps = max((e.get("max_steps") or 40 for e in eps_by.values()), default=40) if a.bench == "gaia2" else 30
     miss = [x for c in cases for x in (c["lost"], c.get("won")) if x and x not in eps_by]
     if miss: sys.exit(f"episodes of the tree missing from --runs: {miss[:5]}")
     ft = json.load(open(a.failed_tests, encoding="utf-8")) if a.failed_tests else None
     if a.dry_run:
         try: sys.stdout.reconfigure(encoding="utf-8")
         except Exception: pass
-        c = cases[0]; print(f"### SYSTEM\n{SYSTEM}\n\n### USER (case {c['case_id']}: lost={c['lost']} won={c.get('won')})\n"
-                            + build_prompt(c, eps_by, a.max_steps, a.k_per_case, a.outcome_detail, a.no_sibling, ft))
+        c = cases[0]; print(f"### SYSTEM\n{SYSTEM_G2 if a.bench == 'gaia2' else SYSTEM}\n\n### USER (case {c['case_id']}: lost={c['lost']} won={c.get('won')})\n"
+                            + build_prompt(c, eps_by, a.max_steps, a.k_per_case, a.outcome_detail, a.no_sibling, ft, a.bench))
         return
     if os.path.dirname(a.out): os.makedirs(os.path.dirname(a.out), exist_ok=True)
     lock = threading.Lock(); fh = open(a.out, "w", encoding="utf-8")

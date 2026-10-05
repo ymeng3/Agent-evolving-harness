@@ -318,3 +318,11 @@ contrasts and the screen more firing states. (ii) Candidate level: candidates wh
 with >= 2 states get extra branch repetitions, ranked by posterior width (top-two style); decided candidates get none.
 Admission rule unchanged (A26). SWE-bench Pro is not runnable on the current box (inside a docker container, no container runtime,
 61 GB free); Gaia2 / ARE (pure python simulator) is the candidate second benchmark, pending a replay-determinism feasibility check.
+
+A28 (2026-10-06). Second benchmark: Gaia2 (Meta ARE 1.2.0) via our own harness gaia2/bos_gaia2.py (docs/design/GAIA2_ADAPTER_PLAN.md):
+deterministic synchronous simulation (virtual clock, 1.0 s per step, seeded uuid/time shims, PYTHONHASHSEED=0, stable event
+ordering), python code cells calling ARE tools, the same v3 hooks / compiled BIT patches, exact replay incl. {"exec","shown"}
+items, judge = the same local Qwen3.8-27B with thinking off and an on-disk cache (limitation: official judge is Llama-3.3-70B).
+Splits frozen now (gaia2/data, rule in splits.json): 800 capability scenarios (execution, search, adaptability, time, ambiguity;
+160 each; mini/demo excluded), per config disc 60 / val 30 / test 70; pilot = 10/config, disc_core = 30/config. Test is touched once.
+Privileged hindsight for the proposer = verifier per-tool count lines (agent-facing tool names); oracle args only as an ablation.

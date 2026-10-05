@@ -166,13 +166,16 @@ def main():
     ap.add_argument("--k-within", type=int, default=4); ap.add_argument("--k-raw", type=int, default=4)
     ap.add_argument("--max-won-fire", type=float, default=0.05); ap.add_argument("--lam", type=float, default=1.0)
     ap.add_argument("--rho", type=float, default=0.5); ap.add_argument("--harm", type=float, default=0.2)
-    ap.add_argument("--jaccard", type=float, default=0.8); ap.add_argument("--max-steps", type=int, default=30)
+    ap.add_argument("--jaccard", type=float, default=0.8)
+    ap.add_argument("--max-steps", type=int, default=None, help="default 30 (AppWorld) / the runs' max_steps (Gaia2)")
     ap.add_argument("--workers", type=int, default=min(6, os.cpu_count() or 1)); ap.add_argument("--timeout", type=float, default=120)
     a = ap.parse_args(); global RHO, C_HARM; RHO, C_HARM = a.rho, a.harm
     import bit_rubric as R
     t0 = time.time(); instr = json.load(open(a.instr, encoding="utf-8"))
     all_eps = load_episodes(a.runs, instr); byeid = {e["eid"]: e for e in all_eps}
     eps = [e for e in all_eps if not e["crashed"] and not e["has_replay"]]
+    if a.max_steps is None:
+        a.max_steps = max((e.get("max_steps") or 40 for e in eps), default=40) if any(e.get("bench") == "gaia2" for e in eps) else 30
     slim = [{**e, "steps": [{k: v for k, v in s.items() if k != "resp"} for s in e["steps"]]} for e in eps]   # simulate never reads resp
     tries = build_tries(eps); I, J, _ = make_pairs(eps)
     tree = json.load(open(a.tree, encoding="utf-8")); case_task = {c["case_id"]: c["task"] for c in tree["cases"]}
@@ -181,7 +184,8 @@ def main():
         if not c["task"] and c["case_id"] in case_task: c["task"] = case_task[c["case_id"]]
     shown_tasks = {c["task"] for c in tree["cases"]} | {c["task"] for c in cands if c["task"] and not c["ref"]}
     shown_eids = {x for c in tree["cases"] for x in (c["lost"], c["won"]) if x}
-    parts = [instr.get(t, "") for t in sorted(shown_tasks)]
+    ep_instr = {e["task"]: e["instr"] for e in all_eps}   # = instr[t], or the run's own instr list (Gaia2)
+    parts = [instr.get(t) or ep_instr.get(t, "") for t in sorted(shown_tasks)]
     for x in sorted(shown_eids):
         if x in byeid: parts += [s["code"] + "\n" + s["out"] for s in byeid[x]["steps"]]
     shown_text = _norm("\n".join(parts))

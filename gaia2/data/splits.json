@@ -1,0 +1,89 @@
+{
+ "rule": "pool = validation configs execution,search,adaptability,time,ambiguity (mini/demo excluded; duplicate scenario data dropped, first by (config, hash) order kept; preflight failures excluded when --preflight is given); within a config sort by sha256(seed+tid), then round-robin over universes (scenario_universe_(\\d+)_, universe order = hash rank of its first member); disc = first round(60n/160), val = next round(30n/160), test = rest; pilot = first round(10n/160) of disc, disc_core = first round(30n/160) of disc",
+ "seed": "g2split:",
+ "preflight": null,
+ "index": "/root/autodl-tmp/cc/gaia2/data/index.json",
+ "counts": {
+  "pilot": 50,
+  "disc_core": 150,
+  "disc": 300,
+  "val": 150,
+  "test": 350
+ },
+ "per_config": {
+  "execution": {
+   "pool": 160,
+   "disc": 60,
+   "val": 30,
+   "test": 70,
+   "pilot": 10,
+   "disc_core": 30,
+   "universes": {
+    "disc": 10,
+    "val": 10,
+    "test": 10
+   }
+  },
+  "search": {
+   "pool": 160,
+   "disc": 60,
+   "val": 30,
+   "test": 70,
+   "pilot": 10,
+   "disc_core": 30,
+   "universes": {
+    "disc": 10,
+    "val": 10,
+    "test": 10
+   }
+  },
+  "adaptability": {
+   "pool": 160,
+   "disc": 60,
+   "val": 30,
+   "test": 70,
+   "pilot": 10,
+   "disc_core": 30,
+   "universes": {
+    "disc": 10,
+    "val": 10,
+    "test": 9
+   }
+  },
+  "time": {
+   "pool": 160,
+   "disc": 60,
+   "val": 30,
+   "test": 70,
+   "pilot": 10,
+   "disc_core": 30,
+   "universes": {
+    "disc": 10,
+    "val": 10,
+    "test": 10
+   }
+  },
+  "ambiguity": {
+   "pool": 160,
+   "disc": 60,
+   "val": 30,
+   "test": 70,
+   "pilot": 10,
+   "disc_core": 30,
+   "universes": {
+    "disc": 10,
+    "val": 10,
+    "test": 9
+   }
+  }
+ },
+ "excluded": {
+  "mini/demo": 3
+ },
+ "instructions_missing": [
+  "universe_hf",
+  "universe_hf_0",
+  "universe_hf_4"
+ ],
+ "made": "2026-10-06 03:13:54"
+}

@@ -1,0 +1,13 @@
+{
+ "name": "null_note_step3",
+ "kind": "note",
+ "cls": "control_flow",
+ "hypothesis": "Null reference (Gaia2): a generic, condition-free reminder shown once at step 3; any effect is a pure note/attention effect.",
+ "note": "Take a moment to re-read the user's request and check that every part of it is covered by your plan before you go on.",
+ "detect_src": "def detect(view):\n    return view[\"step\"] >= 3\n",
+ "origin": {
+  "case_id": null,
+  "run": "ref"
+ },
+ "ref": true
+}

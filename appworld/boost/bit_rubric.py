@@ -266,8 +266,13 @@ def _generic_code_fire(ns, before, after):
 
 
 def _prompt_proxy(ep, k, max_steps=30):
-    """what the harness passes to pre_call: the task turn at step 0, afterwards the previous step's output turn (out <= 200 chars)."""
-    if k == 0: return f"My name is: (user). My personal email is (email) and phone number is (phone).\nTask: {ep.get('instr', '')}"
+    """what the harness passes to pre_call: the task turn at step 0, afterwards the previous step's output turn (out <= 200 chars).
+    Gaia2 (bos_gaia2.py): step 0 is "Current time: <dt>\nTask: <instr>" and the step counter uses the run's max_steps."""
+    g2 = ep.get("bench") == "gaia2"
+    if k == 0:
+        if g2: return f"Current time: (t)\nTask: {ep.get('instr', '')}"
+        return f"My name is: (user). My personal email is (email) and phone number is (phone).\nTask: {ep.get('instr', '')}"
+    if g2: max_steps = ep.get("max_steps") or max_steps
     prev = ep["steps"][k - 1]
     return "Output:\n```\n" + prev["out"] + "\n```" + (f"\n[{k} of {max_steps} steps used]" if ep.get("harness_h1", True) else "")
 
@@ -276,6 +281,7 @@ def _simulate(src, eps, stop_at_first=True):
     ids, F = _load_patch(src); template = "_cc_fired" in src; res = {}
     for ep in eps:
         state = {"_instr": ep.get("instr", "")}; fires, errs, stopped = [], 0, set()
+        marker = "send_message_to_user" if ep.get("bench") == "gaia2" else "complete_task"   # the harness's pre_complete trigger
         n_rep = sum(1 for s in ep["steps"] if s.get("replayed"))
 
         def call(eid, point, f, *args):
@@ -312,7 +318,7 @@ def _simulate(src, eps, stop_at_first=True):
             if s.get("no_exec") or not s["code"]: continue
             code = s["code"]
             for point in ("post_parse", "pre_complete"):
-                if point == "pre_complete" and "complete_task" not in code: break
+                if point == "pre_complete" and marker not in code: break
                 for eid, f in F[point]:
                     if eid in stopped: continue
                     r, new = call(eid, point, f, code, state); c2 = r if isinstance(r, str) and r.strip() else code
@@ -376,7 +382,8 @@ def _load_episodes(paths, instr):
                               "no_exec": bool(s.get("no_exec")) or (not code and not rep), "replayed": rep, "resp": s.get("resp") or ""})
             eps.append({"eid": f"{d['tag']}_s{d['seed']}:{t}", "task": t, "tag": d["tag"], "seed": d["seed"], "won": bool(w), "G": G,
                         "instr": instr.get(t, ""), "harness_h1": bool(d.get("harness_h1")), "crashed": bool(cr),
-                        "has_replay": any(s["replayed"] for s in steps), "steps": steps})
+                        "has_replay": any(s["replayed"] for s in steps), "bench": d.get("bench", "appworld"), "max_steps": d.get("max_steps"),
+                        "steps": steps})
     return eps
 
 

@@ -1,0 +1,13 @@
+{
+ "name": "send_before_write",
+ "kind": "block_once",
+ "cls": "control_flow",
+ "hypothesis": "Reference (Gaia2): the agent sends its reply to the user, which ends the turn, before any state-changing (write) tool call was executed in the episode; on action requests the oracle writes first, so the verifier's per-tool write counts fail.",
+ "note": "You are about to send your reply to the user, which ends this turn, but no state-changing action (create, send, add, update, delete, order, ...) has been executed so far in this episode. If the request asks you to do something in the apps, do it first and check the result; if it only asks for information, send the same reply again.",
+ "detect_src": "def detect(view):\n    import re\n    # write-like tool call: App__<verb>... with a state-changing verb (ARE write_operation tools), never the reply tool itself\n    write = re.compile(r\"\\b(?!AgentUserInterface__)[A-Z]\\w*__(?:send|reply|forward|remove|delete|rm|rmdir|mv|move|mkdir|makedirs|download|create|add|update|set|save|order|edit|checkout|change|cancel|user_cancel|end)(?:_\\w+)?\\s*\\(\")\n    code = view[\"pending\"] or \"\"\n    m = re.search(r\"\\bAgentUserInterface__send_message_to_user\\s*\\(\", code)\n    if not m:\n        return False\n    if write.search(code[:m.start()]):\n        return False\n    return not any(write.search(c[\"code\"] or \"\") for c in view[\"cells\"])\n",
+ "origin": {
+  "case_id": null,
+  "run": "ref"
+ },
+ "ref": true
+}

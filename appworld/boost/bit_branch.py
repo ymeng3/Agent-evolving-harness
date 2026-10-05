@@ -18,7 +18,9 @@ usage: python boost/bit_branch.py build --screen bit/R1/screen.json --cands bit/
                                         --out bit/R1/branch --round R1 --env-file base_env.txt [--force-cid D10_ref --refs boost/bit_refs/D10_ref.json]
        python boost/bit_branch.py readout --build bit/R1/branch --results results --screen bit/R1/screen.json [--alpha 0.10]
        python boost/bit_branch.py valarm --admitted bit/R1/branch/admitted.json --round R1 --env-file base_env.txt
-                                         --base-val results/CC_H1_F0_val_seed1.json,results/CC_H1_F0_val_seed2.json"""
+                                         --base-val results/CC_H1_F0_val_seed1.json,results/CC_H1_F0_val_seed2.json
+Gaia2 (GAIA2_ADAPTER_PLAN U6): build / valarm --harness-cmd "env -u PYTHONPATH /root/autodl-tmp/cc/are-env/bin/python ../gaia2/bos_gaia2.py"
+(jobs still run with cwd appworld/; never put cd in it); readout --results ../gaia2/results; valarm --results ../gaia2/results."""
 import argparse, collections, json, os, posixpath, re, shlex, sys
 import numpy as np
 HERE = os.path.dirname(os.path.abspath(__file__)); AW = os.path.dirname(HERE)
@@ -29,6 +31,8 @@ SERVER_ROOT = "/root/autodl-tmp/cc/Agent-evolving-harness/appworld"
 BLOCK_PREFIX = "[harness note] Your cell was NOT executed. "   # = bit_rubric._BLOCK_T
 NOTE_PATCH = "patches_ccdiag/BRANCH_NOTE.py"
 OWN_ENV = ("BOS_TASKS", "BOS_REPLAY", "BOS_HINTS")   # set per job; dropped from the base env line
+HARNESS_CMD = "python bos_appworld_v3.py"   # --harness-cmd default; shlex-split into the job line before "eval ..."
+GAIA2_CMD = "env -u PYTHONPATH /root/autodl-tmp/cc/are-env/bin/python ../gaia2/bos_gaia2.py"
 
 
 # ---------------------------------------------------------------- shared
@@ -48,6 +52,13 @@ def read_env(path):
 def load_screen(path):
     s = json.load(open(path, encoding="utf-8")); cands = s.get("candidates") or []
     return s, {c.get("cid"): c for c in cands if c.get("cid") is not None}
+
+
+def harness_cmd(a):
+    """--harness-cmd as job-line tokens (re-quoted, so a token with spaces survives the qsub line)."""
+    toks = shlex.split(a.harness_cmd)
+    if not toks or "cd" in toks: sys.exit(f"--harness-cmd must be the harness command run from appworld/ (no cd): {a.harness_cmd!r}")
+    return [shlex.quote(t) for t in toks]
 
 
 def holm(ps):
@@ -168,7 +179,7 @@ def build(a):
                             patch = f"patches_ccbit/{a.round}_{ctag}_CAND.py"
                             open(os.path.join(pdir, f"{a.round}_{ctag}_CAND.py"), "w", encoding="utf-8").write(BR.compile_patch(base_specs + [spec], max_steps))
                         else: ev.append(f"BOS_HINTS={sd}/hints_cand.json"); patch = NOTE_PATCH
-                    jobs.append(" ".join([qsub, tag] + env + ev + ["python", "bos_appworld_v3.py", "eval", "--patch", patch,
+                    jobs.append(" ".join([qsub, tag] + env + ev + harness_cmd(a) + ["eval", "--patch", patch,
                                                                     "--seed", str(seed), "--tag", tag, "--workers", str(a.workers)]))
                     manifest["jobs"].append({"tag": tag, "cid": cid, "cidx": ctag, "arm": arm, "seed": seed, "rep": rep, "dir": name})
         manifest["cands"].append(crec)
@@ -293,9 +304,9 @@ def valarm(a):
     qsub = a.qsub or ("bash " + posixpath.join(posixpath.dirname(a.server_root.rstrip("/")), "tools", "queue", "qsub.sh"))
     tag = f"CC_BIT_{a.round}_ADM_val"; seeds = [int(s) for s in a.seeds.split(",")]
     for s in seeds:
-        print(" ".join([qsub, tag] + env + ["python", "bos_appworld_v3.py", "eval", "--patch", rel, "--seed", str(s), "--tag", tag,
+        print(" ".join([qsub, tag] + env + harness_cmd(a) + ["eval", "--patch", rel, "--seed", str(s), "--tag", tag,
                                             "--workers", str(a.workers)]))
-    arm = ",".join(f"results/{tag}_seed{s}.json" for s in seeds)
+    arm = ",".join(posixpath.join(a.results, f"{tag}_seed{s}.json") for s in seeds)
     print(f"# after both finish (in appworld/):\npython boost/multi_metric_readout.py --base {a.base_name}={a.base_val} --arm {a.round}_ADM={arm}")
 
 
@@ -309,6 +320,7 @@ def main():
     b.add_argument("--server-out", default=""); b.add_argument("--qsub", default=""); b.add_argument("--workers", type=int, default=8)
     b.add_argument("--timeout", type=float, default=300)
     b.add_argument("--base-specs", default="", help="comma list of spec JSONs of trees already in the base harness (boosting round >= 2)")
+    b.add_argument("--harness-cmd", default=HARNESS_CMD, help=f"harness command of the job lines (Gaia2: {GAIA2_CMD!r})")
     r = sub.add_parser("readout"); r.add_argument("--build", required=True); r.add_argument("--results", default="results")
     r.add_argument("--screen", default=""); r.add_argument("--alpha", type=float, default=0.10); r.add_argument("--out", default="")
     r.add_argument("--admit-refs", action="store_true", help="let reference specs (positive controls) into admitted.json")
@@ -319,6 +331,8 @@ def main():
     v.add_argument("--base-name", default="BASE"); v.add_argument("--max-steps", type=int, default=30)
     v.add_argument("--server-root", default=SERVER_ROOT); v.add_argument("--qsub", default=""); v.add_argument("--workers", type=int, default=8)
     v.add_argument("--base-specs", default="", help="comma list of spec JSONs of trees already in the base harness (compiled first)")
+    v.add_argument("--harness-cmd", default=HARNESS_CMD, help=f"harness command of the job lines (Gaia2: {GAIA2_CMD!r})")
+    v.add_argument("--results", default="results", help="results dir of the val runs, relative to appworld/ (Gaia2: ../gaia2/results)")
     a = ap.parse_args()
     {"build": build, "readout": readout, "valarm": valarm}[a.cmd](a)
 
