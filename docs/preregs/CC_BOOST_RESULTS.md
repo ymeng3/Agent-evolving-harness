@@ -223,4 +223,8 @@ reply-to-own-outbox, pre-existing cart). Branch-at-fire with tree 1 active in bo
 
 The pooled estimator (shared effect across states, memory-tree baseline prior, logged run as a free none sample) turns an
 inconclusive per-state result into a confident one with the same data, and an independent 4-rep rebuild replicates it; it also
-shrinks single-state +1.0 effects. Validation arm h2 = H1 + tree 1 + R1P2_c20_1 (val s1, s2) vs h1 val (0.830) queued.
+shrinks single-state +1.0 effects.
+**Validation arm h2 = H1 + tree 1 + tree 2 (val s1, s2) = 0.78 / 0.82 -> 0.800 vs h1 0.830: -3pp [-10, +3], p = 0.62 (n.s.).**
+Tree 2 fired 6 + 4 times on val (7 won). Expected full-run effect tau = s*a ~ 0.06 * 0.22 ~ +1.3pp -- below the resolution of a
+2-seed full-run comparison (run-to-run SD ~7pp). A validation branch-at-fire test (held-out states, pooled estimator) is the
+powered out-of-sample test for diluted trees.
