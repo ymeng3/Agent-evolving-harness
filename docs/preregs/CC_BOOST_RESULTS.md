@@ -204,3 +204,23 @@ broadly) -- watch in round 2.
 The boosted rubric works as a scorer on unseen tasks of the harness whose residuals it was fit to, and does not transfer to a
 different base harness whose failures are of other kinds -- trees are residual models of a specific h (motivates re-fitting
 residuals each boosting round, and the low-rank task x harness evaluation of MATH v2 §7).
+
+
+## BIT round R1 (boosting iteration 2, base h1 = H1 + tree 1 = P2_c13_1)
+h1 on disc (s1, s2) = 0.80 (H1 0.83, n.s.): tree 1 rescued e7f15ba (x2), b6d1f70, d9987f6, 690d51b, e201314, 77bcb81 but harmed
+7d26579 ("...has anyone experienced...?" -- its question-cue list lacks "has" and "?") -> the top residual of round 2.
+Self-proposer R1P2 (failed-test texts + siblings): 36 candidates, 16 valid, 8 kept (incl. a repair of tree 1's harm, pagination,
+reply-to-own-outbox, pre-existing cart). Branch-at-fire with tree 1 active in both arms (--base-specs).
+
+| cid | mechanism | states | naive a | per-state posterior P | **pooled rank-1 a [90% CrI]** | P(beta>0) | admitted (A26) |
+|---|---|---|---|---|---|---|---|
+| R1P2_c20_1 | paginates a single listing API to collect "all" items | 6 | +0.14 (2 reps) | 0.64 | +0.20 [+0.03, +0.32] (2 reps) | 0.969 | |
+| | **independent 4-rep rebuild** | 6 | +0.23 | 0.94 | **+0.25 [+0.15, +0.32]** | **1.000** | |
+| | pooled 2 + 4 reps | 6 | +0.18 | | **+0.22 [+0.13, +0.29]** | **1.000** | **yes** |
+| R1P2_c02_1 | repair of tree-1 harm (question task, complete_task() without answer) | 7 | 0.00 | 0.50 | +0.02 [-0.11, +0.14] | 0.58 | no |
+| R1P2_c16_2 | note on pre-existing cart | 5 | +0.07 | 0.50 | +0.12 [-0.05, +0.26] | 0.88 | no |
+| c15_1 / c16_1 / c12_1 / c09_1 | single-task fixes (memo-flagged; c09_1 = GT rounding quirk) | 1-3 | +0.75..+1.0 | 0.95-0.99 | shrunk to +0.4..+0.48 | 0.95-0.999 | no (< 4 states / memo) |
+
+The pooled estimator (shared effect across states, memory-tree baseline prior, logged run as a free none sample) turns an
+inconclusive per-state result into a confident one with the same data, and an independent 4-rep rebuild replicates it; it also
+shrinks single-state +1.0 effects. Validation arm h2 = H1 + tree 1 + R1P2_c20_1 (val s1, s2) vs h1 val (0.830) queued.
