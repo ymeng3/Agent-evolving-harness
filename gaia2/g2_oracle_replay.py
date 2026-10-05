@@ -14,7 +14,7 @@ ended and turns remain -> pull; stub judge for the turn conditions), so waits ar
 
 usage (server, are-env python, PYTHONHASHSEED=0 is set by re-exec):
   python gaia2/g2_oracle_replay.py pick --per execution=20,search=20,adaptability=4,time=4 [--split gaia2/data/tasks_disc.json] --out T.json
-  python gaia2/g2_oracle_replay.py build --tasks T.json --out R.json [--seed 1] [--workers 8] [--perturb]
+  python gaia2/g2_oracle_replay.py build --tasks T.json --out R.json [--seed 1] [--workers 8] [--perturb none|space|suffix]
   BOS_TASKS=T.json BOS_REPLAY=R.json G2_STEPS=150 python gaia2/bos_gaia2.py eval --replay-only --patch none --seed 1 --tag CC_G2_oracle --workers 8
   python gaia2/g2_oracle_replay.py report --result gaia2/results/CC_G2_oracle_seed1.json --build R.json"""
 import argparse, ast, json, math, os, re, subprocess, sys, time
@@ -27,6 +27,15 @@ SMTU = "AgentUserInterface__send_message_to_user"
 MAX_WAIT_CELLS = 12   # per group
 PERTURB_ARGS = ("content",)   # --perturb: free-text args the soft (LLM) checkers read
 PERTURB_SUFFIX = " Let me know if you need anything else."
+
+
+def perturb_text(v, mode):
+    """space: double the first inner space (invisible to a reader, but normalize_arg keeps whitespace, so the equality short-cut
+    fails and the LLM checkers judge oracle-equivalent text; one-word values stay exact); suffix: append PERTURB_SUFFIX (a real edit:
+    style / sanity checkers may reject it, e.g. after a signature or when the task asks for the bare answer)."""
+    if mode == "space": return v.replace(" ", "  ", 1) if " " in v.strip() else v
+    if mode == "suffix": return v.rstrip() + PERTURB_SUFFIX
+    return v
 
 
 def _literal(v):
@@ -66,9 +75,9 @@ def oracle_groups(env):
     return groups, base_o, {"n_oracle_agent_events": len(rows), "n_turn_missing": n_missing}
 
 
-def group_code(g, var_of, referenced, env_return, perturb=False):
-    """App__fn(**args) lines for one group. -> (code, problems). perturb: append a neutral sentence to free-text args, so that the
-    judge's equality short-cut fails and its LLM soft checkers are exercised (an exact oracle copy never reaches the LLM)."""
+def group_code(g, var_of, referenced, env_return, perturb="none"):
+    """App__fn(**args) lines for one group. -> (code, problems). perturb (perturb_text mode) edits free-text args so that the judge's
+    equality short-cut fails and its LLM soft checkers are exercised (an exact oracle copy never reaches the LLM)."""
     lines, probs = [], []
     for eid, tool, raw, res in g["events"]:
         parts = []
@@ -83,7 +92,7 @@ def group_code(g, var_of, referenced, env_return, perturb=False):
                     if expr is None: probs.append(f"unresolved placeholder {v} ({tool}.{k})"); expr = _literal(res.get(k))
                     if expr is None: expr = "None"
             else:
-                if perturb and k in PERTURB_ARGS and isinstance(v, str) and v.strip(): v = v.rstrip() + PERTURB_SUFFIX
+                if perturb != "none" and k in PERTURB_ARGS and isinstance(v, str) and v.strip(): v = perturb_text(v, perturb)
                 expr = _literal(v)
                 if expr is None: probs.append(f"non-literal arg {tool}.{k}={str(v)[:60]}"); expr = repr(str(v))
             parts.append(f"{k}={expr}")
@@ -94,7 +103,7 @@ def group_code(g, var_of, referenced, env_return, perturb=False):
     return "\n".join(lines), probs
 
 
-def build_one(tid, seed=1, gen_seconds=1.0, cell_timeout=30.0, perturb=False):
+def build_one(tid, seed=1, gen_seconds=1.0, cell_timeout=30.0, perturb="none"):
     """Drive a G2Env (stub judge) through the oracle cells exactly as bos_gaia2.play's run_cell would; -> (items, report)."""
     import g2_env as E
     from g2_exec import CodeExecutor
@@ -223,7 +232,7 @@ def main():
     p = sp.add_parser("build"); p.add_argument("--tasks", required=True); p.add_argument("--out", required=True); p.add_argument("--seed", type=int, default=1)
     p.add_argument("--workers", type=int, default=8); p.add_argument("--gen-seconds", type=float, default=float(os.environ.get("G2_GEN_SECONDS", "1.0")))
     p.add_argument("--cell-timeout", type=float, default=float(os.environ.get("G2_CELL_TIMEOUT", "30")))
-    p.add_argument("--perturb", action="store_true", help=f"append {PERTURB_SUFFIX!r} to {PERTURB_ARGS} args (exercises the LLM judge)")
+    p.add_argument("--perturb", choices=["none", "space", "suffix"], default="none", help=f"edit {PERTURB_ARGS} args (exercises the LLM judge; see perturb_text)")
     p = sp.add_parser("pick"); p.add_argument("--per", default="execution=20,search=20,adaptability=4,time=4")
     p.add_argument("--split", default=os.path.join(HERE, "data", "tasks_disc.json")); p.add_argument("--out", required=True)
     p = sp.add_parser("report"); p.add_argument("--result", required=True); p.add_argument("--build", default=None)
