@@ -213,6 +213,7 @@ def play(job):
             except Exception as e: exec_out = f"Execution failed. {type(e).__name__}: {str(e)[:300]}"; info = {"calls": [], "writes": 0, "exc": "env_exc"}
         env.tick(); n1 = env.turns_done()
         if n1 > n0 and n1 < env.nb_turns: env.idle_until_message(max(0.0, env.start_time + env.duration - env.now()))
+        if exec_out and hasattr(env, "scrub"): exec_out = env.scrub(exec_out)   # no per-process sandbox paths in what the model sees
         return exec_out or "", info or {}, env.pull_messages()
 
     def ended(m):

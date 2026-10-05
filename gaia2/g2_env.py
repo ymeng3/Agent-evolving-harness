@@ -498,8 +498,30 @@ class G2Env:
                 None if md is None or md.exception is None else re.sub(r" at 0x[0-9a-f]+", "", str(md.exception))]
 
     def state_hash(self) -> str:
-        """sha256 of canonical JSON: env.get_apps_state() + event-log projection (no ids) + round(now, 3)."""
-        return hashlib.sha256(self.canonical_state().encode("utf-8")).hexdigest()
+        """sha256 of canonical JSON: env.get_apps_state() + event-log projection (no ids) + round(now, 3).
+        G2_DUMP_STATE_DIR (debugging selftest mismatches): also write the canonical JSON to <dir>/<tid>_<hash12>.json."""
+        s = self.canonical_state(); h = hashlib.sha256(s.encode("utf-8")).hexdigest()
+        d = os.environ.get("G2_DUMP_STATE_DIR")
+        if d:
+            os.makedirs(d, exist_ok=True)
+            with open(os.path.join(d, f"{self.tid}_{h[:12]}.json"), "w", encoding="utf-8") as f: f.write(s)
+        return h
+
+    def _sandbox_dirs(self):
+        """real directories of the Files app (per-process mkdtemp names), longest first."""
+        return sorted({p for app in self.env.apps.values() if isinstance(getattr(app, "tmpdir", None), str)
+                       for p in (app.tmpdir, os.path.dirname(app.tmpdir))}, key=len, reverse=True)
+
+    def scrub(self, text: str) -> str:
+        """agent-visible text without the Files app's real paths (error messages, file objects): the sandbox root becomes "" (paths
+        read as the app shows them, e.g. /Documents/x) and its parent session dir "<sandbox>"; memory addresses are dropped."""
+        if not text: return text
+        dirs = self._sandbox_dirs()
+        for d in dirs[:1] if dirs else []:
+            text = text.replace(d, "")
+        for d in dirs[1:]:
+            if len(d) > 4: text = text.replace(d, "<sandbox>")
+        return re.sub(r" at 0x[0-9a-fA-F]+", "", text)
 
     def canonical_state(self) -> str:
         from are.simulation.utils import make_serializable
@@ -508,11 +530,10 @@ class G2Env:
         s = json.dumps(payload, sort_keys=True, ensure_ascii=False, default=str)
         # the Files app (SandboxLocalFileSystem; APPS_TO_SKIP matches app names, so "Files" is kept, as in ARE's benchmark)
         # lives in a per-process mkdtemp dir that appears in its state and in paths: mask it
-        for d in sorted({p for app in self.env.apps.values() if isinstance(getattr(app, "tmpdir", None), str)
-                         for p in (app.tmpdir, os.path.dirname(app.tmpdir))}, key=len, reverse=True):
+        for d in self._sandbox_dirs():
             if len(d) > 4:
                 s = s.replace(d, "<sandbox>")
-        return s
+        return re.sub(r" at 0x[0-9a-fA-F]+", "", s)   # reprs of objects in return values (e.g. a file object from Files__open)
 
 
 # ---- check entry point -------------------------------------------------------------------------------------------------------

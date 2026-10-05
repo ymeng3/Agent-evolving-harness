@@ -126,6 +126,13 @@ class CellTimeout(Exception):
 CellTimeout.__module__ = "builtins"   # traceback shows "CellTimeout: ...", not "gaia2.g2_exec.CellTimeout"
 
 
+# modules a cell may import (top-level name). No os / sys / io / pathlib / subprocess / importlib ...: in the pilot a cell listed /tmp
+# with os and tried to read harness files (the scenario files hold the oracle); app state is reachable only through the tools.
+CELL_IMPORTS = frozenset("""re json math cmath statistics random datetime time calendar zoneinfo collections itertools functools operator
+string textwrap difflib heapq bisect copy decimal fractions numbers typing dataclasses enum pprint uuid hashlib base64 unicodedata
+html""".split())
+
+
 def clock_modules(clock):
     """-> {"time": shim, "datetime": shim} for model code: wall-clock reads return the simulation's virtual clock (clock() = epoch
     seconds; naive datetimes are UTC, as the apps show them), so cells are deterministic and see the scenario's date. time.sleep is
@@ -177,7 +184,8 @@ class CodeExecutor:
     """persistent python namespace; tools are plain functions named by public name. run(code) -> (output, info)."""
 
     def __init__(self, tools, cell_timeout_s=30, hidden=None, clock=None):
-        """clock: callable -> virtual epoch seconds; if given, `import time` / `import datetime` in cells get clock_modules(clock)."""
+        """clock: callable -> virtual epoch seconds; if given, `import time` / `import datetime` in cells get clock_modules(clock).
+        Cells may import only CELL_IMPORTS."""
         hidden = set(hidden or ())
         self.tools = {tool_name(t): t for t in tools if tool_name(t) not in hidden}
         self.cell_timeout_s = cell_timeout_s; self.n_cells = 0
@@ -185,12 +193,14 @@ class CodeExecutor:
         bi = dict(vars(builtins))
         for n in ("input", "exit", "quit", "open"): bi[n] = _disabled(n)
         bi["help"] = self._help
-        if clock is not None:
-            shims, real_import = clock_modules(clock), builtins.__import__
-            def _import(name, globals=None, locals=None, fromlist=(), level=0):
-                if level == 0 and name in shims: return shims[name]
-                return real_import(name, globals, locals, fromlist, level)
-            bi["__import__"] = _import
+        shims, real_import = (clock_modules(clock) if clock is not None else {}), builtins.__import__
+        def _import(name, globals=None, locals=None, fromlist=(), level=0):
+            if level != 0 or name.split(".")[0] not in CELL_IMPORTS:
+                raise ImportError(f"import of {name!r} is not allowed in this environment (allowed: {', '.join(sorted(CELL_IMPORTS))}); "
+                                  f"use the App__tool functions to access the apps")
+            if name in shims: return shims[name]
+            return real_import(name, globals, locals, fromlist, level)
+        bi["__import__"] = _import
         self.ns = {"__builtins__": bi, "__name__": "__main__"}
         for n, t in self.tools.items(): self.ns[n] = self._wrap(n, t)
 
