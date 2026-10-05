@@ -173,7 +173,7 @@ def _stub_engine():
         LLMEngine = object
 
     class StubJudgeEngine(LLMEngine):
-        """Never contacted during construction; answers [[Success]] if validate() reaches an LLM check."""
+        """Never contacted during construction; answers [[Success]] [[True]] (content and signature/sanity checkers) if validate() reaches an LLM check."""
         def __init__(self):
             if LLMEngine is not object: super().__init__("stub-judge")
             self.calls = 0
@@ -182,7 +182,7 @@ def _stub_engine():
 
         def chat_completion(self, messages, stop_sequences=[], **kw):
             self.calls += 1
-            return "[[Success]]", {}
+            return "[[Success]] [[True]]", {}
     return StubJudgeEngine()
 
 
