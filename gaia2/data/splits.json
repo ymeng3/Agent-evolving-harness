@@ -1,7 +1,7 @@
 {
  "rule": "pool = validation configs execution,search,adaptability,time,ambiguity (mini/demo excluded; duplicate scenario data dropped, first by (config, hash) order kept; preflight failures excluded when --preflight is given); within a config sort by sha256(seed+tid), then round-robin over universes (scenario_universe_(\\d+)_, universe order = hash rank of its first member); disc = first round(60n/160), val = next round(30n/160), test = rest; pilot = first round(10n/160) of disc, disc_core = first round(30n/160) of disc",
  "seed": "g2split:",
- "preflight": null,
+ "preflight": "gaia2/data/preflight.json",
  "index": "/root/autodl-tmp/cc/gaia2/data/index.json",
  "counts": {
   "pilot": 50,
@@ -85,5 +85,5 @@
   "universe_hf_0",
   "universe_hf_4"
  ],
- "made": "2026-10-06 03:13:54"
+ "made": "2026-10-06 03:34:21"
 }

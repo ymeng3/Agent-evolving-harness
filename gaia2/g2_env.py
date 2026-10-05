@@ -14,7 +14,7 @@ StubJudgeEngine for tests). validate() adds G = write-action multiset overlap wi
 usage (server, are-env python):
   PYTHONHASHSEED=0 python -m gaia2.g2_env --tid <tid> --script [--seed 0] [--gen-seconds 1.0] [--json-out out.json]
   PYTHONHASHSEED=0 python -m gaia2.g2_env --tid <tid> --list-tools
-env: G2_SCEN_DIR (default /root/autodl-tmp/cc/gaia2/scenarios), G2_INDEX (default <G2_SCEN_DIR>/index.json)"""
+env: G2_SCEN_DIR (default /root/autodl-tmp/cc/gaia2/scenarios), G2_INDEX (default <G2_SCEN_DIR>/index.json, else <G2_SCEN_DIR>/../data/index.json)"""
 import gzip, hashlib, inspect, json, logging, os, random, re, sys, time as _real_time, uuid as _real_uuid
 from collections import Counter
 from datetime import datetime, timezone
@@ -216,8 +216,11 @@ def _fix_datetime_defaults(start_time: float) -> int:
 
 
 def _scen_paths():
+    """G2_INDEX default: <G2_SCEN_DIR>/index.json if present, else <G2_SCEN_DIR>/../data/index.json (where g2_splits index writes it)."""
     sdir = os.environ.get("G2_SCEN_DIR", DEFAULT_SCEN_DIR)
-    return sdir, os.environ.get("G2_INDEX", os.path.join(sdir, "index.json"))
+    index = os.path.join(sdir, "index.json")
+    if not os.path.exists(index): index = os.path.join(os.path.dirname(os.path.abspath(sdir)), "data", "index.json")
+    return sdir, os.environ.get("G2_INDEX", index)
 
 
 def load_scenario_json(tid: str) -> tuple:
