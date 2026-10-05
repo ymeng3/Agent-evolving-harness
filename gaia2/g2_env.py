@@ -255,6 +255,24 @@ def _public_tool_name(event):
     return f"{getattr(app, 'name', None) or event.app_class_name()}__{event.function_name()}"
 
 
+WAIT_TOOL = "SystemApp__wait_for_notification"
+
+
+class _WaitTool:
+    """SystemApp__wait_for_notification as the agent sees it: first set aside the messages already due (G2Env.stash_messages),
+    then ARE's tool. Every other attribute is the wrapped AppTool's."""
+
+    def __init__(self, tool, g2env):
+        self._tool, self._g2env = tool, g2env
+
+    def __getattr__(self, name):
+        return getattr(self._tool, name)
+
+    def __call__(self, *args, **kwargs):
+        self._g2env.stash_messages()
+        return self._tool(*args, **kwargs)
+
+
 class G2Env:
     """One Gaia2 scenario under the virtual clock. Construction (plan §2 U1): import -> preprocess_scenario (oracle run, judge,
     turn triggers) -> Environment(CLI, VerboseNotificationSystem) -> body of Environment.run without start() -> first tick."""
@@ -312,6 +330,7 @@ class G2Env:
         self.additional_system_prompt = scenario.additional_system_prompt
         self._tools = None
         self._validation = None
+        self._stash = None
         # judge tool names use the app CLASS (EmailClientV2__send_email); agents see app names (Emails__send_email). Two apps can share
         # a class (Messages and Chats are both MessagingAppV2): the judge then conflates them, and the name becomes "Chats|Messages__fn"
         cls_apps = {}
@@ -350,9 +369,11 @@ class G2Env:
 
     # ---- tools / clock -------------------------------------------------------------------------------------------------------
     def tools(self) -> list:
-        """AppTool objects of all registered apps minus the AUI tools the default ARE agent hides; names are tool._public_name."""
+        """AppTool objects of all registered apps minus the AUI tools the default ARE agent hides; names are tool._public_name.
+        SystemApp__wait_for_notification is wrapped (_WaitTool) so that it first sets aside the messages already due."""
         if self._tools is None:
-            self._tools = [t for t in self.env.get_tools() if t._public_name not in HIDDEN_AUI_TOOLS and t.name not in HIDDEN_AUI_TOOLS]
+            self._tools = [_WaitTool(t, self) if t._public_name == WAIT_TOOL else t for t in self.env.get_tools()
+                           if t._public_name not in HIDDEN_AUI_TOOLS and t.name not in HIDDEN_AUI_TOOLS]
         return self._tools
 
     def now(self) -> float:
@@ -370,11 +391,30 @@ class G2Env:
             self.env.time_manager.add_offset(float(seconds))
 
     def _pending(self):
+        """messages due now: set aside during the cell (stash_messages) or still queued."""
+        st = self._stash or {}
         ts = datetime.fromtimestamp(self.now(), tz=timezone.utc)
-        return [m for m in self.env.notification_system.message_queue.list_view() if m.timestamp <= ts]
+        return list(st.get("user") or []) + list(st.get("notifications") or []) + (["stop"] if st.get("stop") else []) + \
+            [m for m in self.env.notification_system.message_queue.list_view() if m.timestamp <= ts]
 
     def pull_messages(self) -> dict:
-        """Drain messages due at now(): {"user": [content,...], "notifications": ["[YYYY-mm-dd HH:MM:SS] msg",...], "stop": bool}."""
+        """Drain messages due at now(): {"user": [content,...], "notifications": ["[YYYY-mm-dd HH:MM:SS] msg",...], "stop": bool},
+        preceded by those set aside during the cell (stash_messages)."""
+        st, self._stash = self._stash, None
+        m = self._drain()
+        if st: m = {"user": st["user"] + m["user"], "notifications": st["notifications"] + m["notifications"], "stop": st["stop"] or m["stop"]}
+        return m
+
+    def stash_messages(self) -> None:
+        """Set aside the messages due now (shown after the cell by pull_messages). ARE's wait_for_notification returns at once while
+        an undrained notification is queued; ARE's agent drains the queue between its one-tool steps, but a cell can call the tool
+        repeatedly (a polling loop then spun until the wall-clock cell timeout: non-deterministic)."""
+        m = self._drain()
+        if self._stash: m = {"user": self._stash["user"] + m["user"], "notifications": self._stash["notifications"] + m["notifications"],
+                             "stop": self._stash["stop"] or m["stop"]}
+        self._stash = m
+
+    def _drain(self) -> dict:
         from are.simulation.notification_system import MessageType
         msgs = self.env.notification_system.message_queue.get_by_timestamp(datetime.fromtimestamp(self.now(), tz=timezone.utc))
         user, notes, stop = [], [], False

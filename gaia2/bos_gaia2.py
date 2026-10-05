@@ -25,7 +25,7 @@ NO_EXEC_OUT = "Nothing was executed this step."
 def _cfg(over=None):
     c = {"max_steps": int(os.environ.get("G2_STEPS", "40")), "gen_seconds": float(os.environ.get("G2_GEN_SECONDS", "1.0")),
          "hist": int(os.environ.get("G2_HIST", "20")), "ep_timeout": float(os.environ.get("G2_EP_TIMEOUT", "3600")),
-         "cell_timeout": float(os.environ.get("G2_CELL_TIMEOUT", "30")), "max_tokens": int(os.environ.get("BOS_MAX_TOKENS", "8192")),
+         "cell_timeout": float(os.environ.get("G2_CELL_TIMEOUT", "30")), "cell_max_calls": int(os.environ.get("G2_CELL_MAX_CALLS", "300")), "max_tokens": int(os.environ.get("BOS_MAX_TOKENS", "8192")),
          "think": os.environ.get("BOS_THINK_OFF", "0") != "1", "model": os.environ.get("BOS_MODEL", "qwen/qwen3-30b-a3b-instruct-2507"),
          "temperature": float(os.environ.get("BOS_TEMPERATURE", "0.4")), "out": os.environ.get("G2_OUT", HERE),
          "prompt_chars": int(os.environ.get("G2_PROMPT_CHARS", "60000"))}
@@ -198,7 +198,7 @@ def play(job):
     funcs, consts = Hk.load_patch(job.get("patch"), quiet=True)
     H = int(consts.get("HISTORY_LENGTH", cfg["hist"])); T = float(consts.get("TEMPERATURE", cfg["temperature"]))
     llm = None if job.get("replay_only") else LLM(cfg, T)
-    tools = env.tools(); ex = CodeExecutor(tools, cell_timeout_s=cfg["cell_timeout"], clock=env.now)   # time / datetime in cells read the virtual clock
+    tools = env.tools(); ex = CodeExecutor(tools, cell_timeout_s=cfg["cell_timeout"], clock=env.now, max_calls=cfg["cell_max_calls"])   # time / datetime in cells read the virtual clock
     sysmsg = system_prompt(env, tools, MAX, format_tool_index)
     state = {}; traj = []; hist = []; free_used = 0; steps = 0; end = None; crashed = None; instr = ""
     if job.get("hint"): state["_hint"] = job["hint"]

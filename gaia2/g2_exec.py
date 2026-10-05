@@ -183,10 +183,11 @@ def _disabled(name):
 class CodeExecutor:
     """persistent python namespace; tools are plain functions named by public name. run(code) -> (output, info)."""
 
-    def __init__(self, tools, cell_timeout_s=30, hidden=None, clock=None):
+    def __init__(self, tools, cell_timeout_s=30, hidden=None, clock=None, max_calls=None):
         """clock: callable -> virtual epoch seconds; if given, `import time` / `import datetime` in cells get clock_modules(clock).
-        Cells may import only CELL_IMPORTS."""
-        hidden = set(hidden or ())
+        Cells may import only CELL_IMPORTS. max_calls: tool calls allowed per cell (a deterministic stop for runaway loops; the
+        wall-clock cell timeout would stop them at a random point)."""
+        hidden = set(hidden or ()); self.max_calls = max_calls
         self.tools = {tool_name(t): t for t in tools if tool_name(t) not in hidden}
         self.cell_timeout_s = cell_timeout_s; self.n_cells = 0
         self._calls = []; self._writes = 0
@@ -207,6 +208,9 @@ class CodeExecutor:
     def _wrap(self, name, tool):
         ex = self; is_write = bool(getattr(tool, "write_operation", False))
         def call(*args, **kwargs):
+            if ex.max_calls and len(ex._calls) >= ex.max_calls:
+                raise RuntimeError(f"tool call limit: more than {ex.max_calls} tool calls in one cell; the cell was stopped here "
+                                   f"(split the work over several cells)")
             ex._calls.append(name)
             if is_write: ex._writes += 1
             try: return tool(*args, **kwargs)
