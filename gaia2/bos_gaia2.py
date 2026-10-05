@@ -27,7 +27,8 @@ def _cfg(over=None):
          "hist": int(os.environ.get("G2_HIST", "20")), "ep_timeout": float(os.environ.get("G2_EP_TIMEOUT", "3600")),
          "cell_timeout": float(os.environ.get("G2_CELL_TIMEOUT", "30")), "max_tokens": int(os.environ.get("BOS_MAX_TOKENS", "8192")),
          "think": os.environ.get("BOS_THINK_OFF", "0") != "1", "model": os.environ.get("BOS_MODEL", "qwen/qwen3-30b-a3b-instruct-2507"),
-         "temperature": float(os.environ.get("BOS_TEMPERATURE", "0.4")), "out": os.environ.get("G2_OUT", HERE)}
+         "temperature": float(os.environ.get("BOS_TEMPERATURE", "0.4")), "out": os.environ.get("G2_OUT", HERE),
+         "prompt_chars": int(os.environ.get("G2_PROMPT_CHARS", "60000"))}
     c.update(over or {}); return c
 
 
@@ -73,6 +74,22 @@ def backbone_extra():
     return extra or None
 
 
+CTX_ERR = re.compile(r"maximum context length|context length exceeded|too many tokens|is longer than the model", re.I)
+
+
+def shrink_msgs(msgs):
+    """drop the oldest history pair: msgs = [system, task turn, (assistant, user)*, ...] -> without msgs[2:4]."""
+    return msgs[:2] + msgs[4:]
+
+
+def fit_msgs(msgs, max_chars):
+    """drop the oldest history pairs until the prompt is at most max_chars characters (the last user turn is always kept)."""
+    n = sum(len(m["content"]) for m in msgs)
+    while n > max_chars and len(msgs) >= 5:
+        n -= len(msgs[2]["content"]) + len(msgs[3]["content"]); msgs = shrink_msgs(msgs)
+    return msgs
+
+
 class LLM:
     def __init__(self, cfg, temperature):
         from g2_exec import strip_think
@@ -81,17 +98,23 @@ class LLM:
         self.tok = [0, 0]; self.calls = 0; self.errors = 0
 
     def chat(self, msgs, si):
-        """-> (answer after </think>, thinking) or None if all 6 attempts failed (bos_appworld_v3 retry / backoff / reconnect)."""
-        r = None; last = None
-        for att in range(6):
+        """-> (answer after </think>, thinking) or None if all 6 attempts failed (bos_appworld_v3 retry / backoff / reconnect).
+        A context-length rejection (HTTP 400) is not retried as is: the oldest history pair is dropped (shrink_msgs), or, with no history
+        left, max_tokens is halved (>= 1024); immediately, without backoff, and not counted as an API retry (si["ctx_trim"])."""
+        r = None; last = None; att = 0; max_tokens = self.cfg["max_tokens"]; n_trim = 0
+        while att < 6:
             try:
-                r = self.client.chat.completions.create(model=self.cfg["model"], messages=msgs, temperature=self.T, max_tokens=self.cfg["max_tokens"], n=1, extra_body=self.extra, **self.sampling); break
+                r = self.client.chat.completions.create(model=self.cfg["model"], messages=msgs, temperature=self.T, max_tokens=max_tokens, n=1, extra_body=self.extra, **self.sampling); break
             except Exception as e:
-                last = e; si["api_retries"] = si.get("api_retries", 0) + 1
+                if CTX_ERR.search(str(e)) and n_trim < 40:
+                    n_trim += 1; si["ctx_trim"] = si.get("ctx_trim", 0) + 1
+                    if len(msgs) >= 5: msgs = shrink_msgs(msgs); continue
+                    if max_tokens > 1024: max_tokens = max(1024, max_tokens // 2); si["max_tokens_cut"] = max_tokens; continue   # vLLM reports only a lower bound of the input tokens
+                last = e; si["api_retries"] = si.get("api_retries", 0) + 1; att += 1
                 if "402" in str(e): raise
                 try: self.client = _make_client()
                 except Exception: pass
-                time.sleep(min(30, 2 * (2 ** att)))
+                time.sleep(min(30, 2 * (2 ** (att - 1))))
         if r is None:
             self.errors += 1; si["api_error"] = str(last)[:80]; return None
         m = r.choices[0].message; u = getattr(r, "usage", None); self.calls += 1
@@ -175,7 +198,7 @@ def play(job):
     funcs, consts = Hk.load_patch(job.get("patch"), quiet=True)
     H = int(consts.get("HISTORY_LENGTH", cfg["hist"])); T = float(consts.get("TEMPERATURE", cfg["temperature"]))
     llm = None if job.get("replay_only") else LLM(cfg, T)
-    tools = env.tools(); ex = CodeExecutor(tools, cell_timeout_s=cfg["cell_timeout"])
+    tools = env.tools(); ex = CodeExecutor(tools, cell_timeout_s=cfg["cell_timeout"], clock=env.now)   # time / datetime in cells read the virtual clock
     sysmsg = system_prompt(env, tools, MAX, format_tool_index)
     state = {}; traj = []; hist = []; free_used = 0; steps = 0; end = None; crashed = None; instr = ""
     if job.get("hint"): state["_hint"] = job["hint"]
@@ -227,6 +250,7 @@ def play(job):
             else:
                 msgs = [{"role": "system", "content": sysmsg}, {"role": "user", "content": task_msg}]
                 for a_txt, u_out in (hist[-H:] if H > 0 else []): msgs += [{"role": "assistant", "content": a_txt}, {"role": "user", "content": u_out}]
+                msgs = fit_msgs(msgs, cfg["prompt_chars"])   # 32k-token context: max_tokens (8192) + system (~19k chars) + history must fit
                 si = {}; state["_step"], state["_tid"], state["_replay_len"] = step, tid, len(pre)
                 prompt0 = msgs[-1]["content"]; prompt = Hk.run_text(funcs, "pre_call", prompt0, state, si)
                 si["pc"] = int(prompt != prompt0); msgs[-1] = {"role": "user", "content": prompt}

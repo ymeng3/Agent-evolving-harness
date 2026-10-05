@@ -118,7 +118,7 @@ def build_one(tid, seed=1, gen_seconds=1.0, cell_timeout=30.0, perturb="none"):
             for v in raw.values():
                 m = PH_RE.match(v.strip()) if isinstance(v, str) else None
                 if m: referenced.add(m.group(1).split(".")[0])
-    tools = env.tools(); ex = CodeExecutor(tools, cell_timeout_s=cell_timeout)
+    tools = env.tools(); ex = CodeExecutor(tools, cell_timeout_s=cell_timeout, clock=env.now)
     env.pull_messages()   # = play(): the initial pull (task message) before step 0
     items, cells, var_of, base_r, probs = [], [], {}, {0: env.start_time}, []
 

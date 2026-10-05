@@ -126,6 +126,47 @@ class CellTimeout(Exception):
 CellTimeout.__module__ = "builtins"   # traceback shows "CellTimeout: ...", not "gaia2.g2_exec.CellTimeout"
 
 
+def clock_modules(clock):
+    """-> {"time": shim, "datetime": shim} for model code: wall-clock reads return the simulation's virtual clock (clock() = epoch
+    seconds; naive datetimes are UTC, as the apps show them), so cells are deterministic and see the scenario's date. time.sleep is
+    refused (it would only burn wall time): waiting is SystemApp__wait_for_notification. Everything else is the real module."""
+    import datetime as _dt, time as _time, types
+    tz = _dt.timezone.utc
+
+    class datetime(_dt.datetime):
+        @classmethod
+        def now(cls, tz_=None):
+            return cls.fromtimestamp(clock(), tz_) if tz_ is not None else cls.fromtimestamp(clock(), tz).replace(tzinfo=None)
+
+        @classmethod
+        def utcnow(cls): return cls.fromtimestamp(clock(), tz).replace(tzinfo=None)
+
+        @classmethod
+        def today(cls): return cls.now()
+
+    class date(_dt.date):
+        @classmethod
+        def today(cls):
+            d = _dt.datetime.fromtimestamp(clock(), tz); return cls(d.year, d.month, d.day)
+
+    dtm = types.ModuleType("datetime"); dtm.__dict__.update({k: v for k, v in vars(_dt).items() if not k.startswith("__")})
+    dtm.datetime, dtm.date = datetime, date
+
+    def sleep(seconds=0):
+        raise RuntimeError("time.sleep() is disabled in this environment (it does not move the simulated clock); "
+                           "use SystemApp__wait_for_notification(timeout=...) to wait")
+    tm = types.ModuleType("time"); tm.__dict__.update({k: v for k, v in vars(_time).items() if not k.startswith("__")})
+    tm.time = lambda: float(clock()); tm.time_ns = lambda: int(clock() * 1e9)
+    tm.monotonic = tm.perf_counter = tm.time; tm.monotonic_ns = tm.perf_counter_ns = tm.time_ns
+    tm.gmtime = lambda secs=None: _time.gmtime(clock() if secs is None else secs)
+    tm.localtime = tm.gmtime
+    tm.ctime = lambda secs=None: _time.asctime(_time.gmtime(clock() if secs is None else secs))
+    tm.asctime = lambda t=None: _time.asctime(_time.gmtime(clock()) if t is None else t)
+    tm.strftime = lambda fmt, t=None: _time.strftime(fmt, _time.gmtime(clock()) if t is None else t)
+    tm.sleep = sleep
+    return {"time": tm, "datetime": dtm}
+
+
 def _disabled(name):
     def f(*a, **k): raise RuntimeError(f"{name}() is disabled in this environment")
     f.__name__ = name
@@ -135,7 +176,8 @@ def _disabled(name):
 class CodeExecutor:
     """persistent python namespace; tools are plain functions named by public name. run(code) -> (output, info)."""
 
-    def __init__(self, tools, cell_timeout_s=30, hidden=None):
+    def __init__(self, tools, cell_timeout_s=30, hidden=None, clock=None):
+        """clock: callable -> virtual epoch seconds; if given, `import time` / `import datetime` in cells get clock_modules(clock)."""
         hidden = set(hidden or ())
         self.tools = {tool_name(t): t for t in tools if tool_name(t) not in hidden}
         self.cell_timeout_s = cell_timeout_s; self.n_cells = 0
@@ -143,6 +185,12 @@ class CodeExecutor:
         bi = dict(vars(builtins))
         for n in ("input", "exit", "quit", "open"): bi[n] = _disabled(n)
         bi["help"] = self._help
+        if clock is not None:
+            shims, real_import = clock_modules(clock), builtins.__import__
+            def _import(name, globals=None, locals=None, fromlist=(), level=0):
+                if level == 0 and name in shims: return shims[name]
+                return real_import(name, globals, locals, fromlist, level)
+            bi["__import__"] = _import
         self.ns = {"__builtins__": bi, "__name__": "__main__"}
         for n, t in self.tools.items(): self.ns[n] = self._wrap(n, t)
 

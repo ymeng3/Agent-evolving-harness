@@ -312,10 +312,41 @@ class G2Env:
         self.additional_system_prompt = scenario.additional_system_prompt
         self._tools = None
         self._validation = None
-        # judge tool names (App CLASS__fn, as in rationales) -> agent tool names (App.name__fn)
-        self.judge_name_map = {f"{type(app).__name__}__{t.func_name}": t._public_name
-                               for app in env.apps.values() for t in app.get_tools()}
+        # judge tool names use the app CLASS (EmailClientV2__send_email); agents see app names (Emails__send_email). Two apps can share
+        # a class (Messages and Chats are both MessagingAppV2): the judge then conflates them, and the name becomes "Chats|Messages__fn"
+        cls_apps = {}
+        for name, app in env.apps.items(): cls_apps.setdefault(type(app).__name__, set()).add(getattr(app, "name", None) or name)
+        self.judge_class_names = {c: "|".join(sorted(ns)) for c, ns in cls_apps.items()}
+        for app in env.apps.values():
+            if hasattr(app, "local_fs") and isinstance(getattr(app, "tmpdir", None), str): self._virtualize_fs(app)
         self.tick()
+
+    def _virtualize_fs(self, app):
+        """The Files app (SandboxLocalFileSystem) is a real mkdtemp dir: info() / ls(detail=True) report wall-clock created / mtime /
+        atime and inode numbers, which leak into outputs and the event log. Patch its local_fs (below ARE's event registration):
+        a timestamp from before the episode becomes the scenario start; a later one (a file the agent created or changed) becomes
+        the virtual time at which this (path, timestamp) was first reported, deterministic given the call sequence; ino becomes a
+        hash of the relative path."""
+        fs, root, t_built, seen = app.local_fs, app.tmpdir, _real_time.time(), {}
+        orig_info, orig_ls = fs.info, fs.ls
+
+        def fix(d):
+            if not isinstance(d, dict): return d
+            rel = str(d.get("name", ""))
+            rel = rel[len(root):] if rel.startswith(root) else rel
+            for k in ("created", "mtime", "atime"):
+                v = d.get(k)
+                if isinstance(v, (int, float)):
+                    d[k] = self.start_time if v <= t_built else seen.setdefault((rel, k, v), self.now())
+            if "ino" in d: d["ino"] = int(hashlib.sha256(rel.encode()).hexdigest()[:12], 16)
+            return d
+
+        def info(path, **kw): return fix(orig_info(path, **kw))
+
+        def ls(path, detail=True, **kw):
+            r = orig_ls(path, detail=detail, **kw)
+            return [fix(x) for x in r] if isinstance(r, list) else r
+        fs.info, fs.ls = info, ls
 
     # ---- tools / clock -------------------------------------------------------------------------------------------------------
     def tools(self) -> list:
@@ -445,12 +476,15 @@ class G2Env:
         # the judge names tools by app CLASS (EmailClientV2__send_email); the agent sees app names (Emails__send_email).
         # Rewrite rationales into agent-facing names (what the proposer and g2_failed_checks consume); keep the raw text.
         out["rationale_raw"], out["rationale_diag_raw"] = out["rationale"], out["rationale_diag"]
-        for jn, an in sorted(getattr(self, "judge_name_map", {}).items(), key=lambda kv: -len(kv[0])):
-            if jn != an:
-                out["rationale"] = out["rationale"].replace(jn, an)
-                if out["rationale_diag"]: out["rationale_diag"] = out["rationale_diag"].replace(jn, an)
+        out["rationale"] = self.agent_tool_names(out["rationale"])
+        if out["rationale_diag"]: out["rationale_diag"] = self.agent_tool_names(out["rationale_diag"])
         self._validation = out
         return out
+
+    def agent_tool_names(self, text):
+        """Class__fn -> App__fn in a judge text (Chats|Messages__fn when a class backs several apps; covers ENV-only tools too)."""
+        m = getattr(self, "judge_class_names", {})
+        return re.sub(r"\b([A-Za-z]\w*?)__(\w+)", lambda g: f"{m[g.group(1)]}__{g.group(2)}" if g.group(1) in m else g.group(0), text)
 
     def _project(self, e):
         from are.simulation.utils import make_serializable
