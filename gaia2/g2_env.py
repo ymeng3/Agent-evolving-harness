@@ -345,7 +345,7 @@ class G2Env:
         atime and inode numbers, which leak into outputs and the event log. Patch its local_fs (below ARE's event registration):
         a timestamp from before the episode becomes the scenario start; a later one (a file the agent created or changed) becomes
         the virtual time at which this (path, timestamp) was first reported, deterministic given the call sequence; ino becomes a
-        hash of the relative path."""
+        hash of the relative path; directory sizes become 0."""
         fs, root, t_built, seen = app.local_fs, app.tmpdir, _real_time.time(), {}
         orig_info, orig_ls = fs.info, fs.ls
 
@@ -358,6 +358,7 @@ class G2Env:
                 if isinstance(v, (int, float)):
                     d[k] = self.start_time if v <= t_built else seen.setdefault((rel, k, v), self.now())
             if "ino" in d: d["ino"] = int(hashlib.sha256(rel.encode()).hexdigest()[:12], 16)
+            if d.get("type") == "directory" and "size" in d: d["size"] = 0   # file-system dependent, varied between runs
             return d
 
         def info(path, **kw): return fix(orig_info(path, **kw))
