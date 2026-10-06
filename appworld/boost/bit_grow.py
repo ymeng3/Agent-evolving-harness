@@ -366,6 +366,7 @@ def cmd_propose(a):
         # (a long thinking reply hit the length limit, or code was written without fences). No conversation accumulation.
         nw += 1; text, u = repair_format(raw_first, a.k, a.max_tokens); uses += u
         kids = [c for c in R.parse_proposals(text) if c.get("detect_src")]
+    conv = msgs + [{"role": "assistant", "content": (text or "")[-6000:]}]   # base for per-child feedback retries (kept short)
     diagnosis = (text.split("NAME:", 1)[0] if kids else text).strip()[:2000]
     base = {"run": a.run_id, "case_id": node["cid"], "parent_cid": node["cid"], "task": None, "node": a.node, "diagnosis": diagnosis}
     if os.path.dirname(a.out): os.makedirs(os.path.dirname(a.out), exist_ok=True)
