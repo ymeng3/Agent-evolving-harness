@@ -64,6 +64,8 @@ def parse_proposals(text):
     text = text or ""; starts = [m.start() for m in re.finditer(_FIELD.format("NAME"), text, re.M | re.I)]; specs = []
     for a, b in zip(starts, starts[1:] + [len(text)]):
         sec = text[a:b]; block = _last_block(sec)
+        if not block and "def detect(" in sec:   # lenient: code written without a ```python fence
+            i = sec.find("NOTE =") if "NOTE =" in sec else sec.find("def detect("); block = sec[i:].strip().strip("`")
         name = re.sub(r"[^a-z0-9_]+", "_", _field(sec, "NAME").strip("`'\" ").lower()).strip("_")[:40]
         note, det = _split_block(block) if block else (None, "")
         specs.append({"name": name, "kind": _field(sec, "KIND").strip("`'\" ").lower(), "cls": _field(sec, "CLASS").strip("`'\" ").lower(),

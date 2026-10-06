@@ -290,6 +290,33 @@ def ask(messages, max_tokens):
     return BP._strip_think(text), uses
 
 
+REPAIR = """Below is a draft written by an engineer who analysed when a harness rule helps and when it harms. Rewrite it into EXACTLY {k}
+candidates in this format, keeping the engineer's logic (do not invent new logic; complete any code that was cut off):
+
+NAME: <snake_case>
+KIND: <same kind as the parent rule>
+CLASS: <control_flow or task_knowledge>
+HYPOTHESIS: <one or two sentences>
+```python
+NOTE = None
+def detect(view):
+    ...
+```
+Rules: detect(view) is the CHILD condition only (it is ANDed with the parent rule automatically); use only view["task"], view["step"],
+view["cells"] (list of dicts with code/out/error), view["pending"]; imports only inside detect (re, json, math, collections, string).
+
+DRAFT:
+{draft}"""
+
+
+def repair_format(draft, k, max_tokens):
+    if os.environ.get("BOOST_MOCK") == "1": return _mock_chat([{"role": "user", "content": draft}]), [{"in": 0, "out": 0, "finish": "mock"}]
+    import proposer as PR, bit_propose as BP
+    msgs = [{"role": "user", "content": REPAIR.format(k=k, draft=BP._strip_think(draft or "")[-14000:])}]
+    text, u = PR.safe_chat(msgs, max_tokens=min(max_tokens, 6000), thinking=False)
+    return BP._strip_think(text), [{**u, "repair": True}]
+
+
 def self_check(sp, states, eps_by, max_steps, timeout):
     """-> (patch_src | None, self_check dict, why); why == "" iff the child passes."""
     try: src, fk = fires_at_k(sp, states, eps_by, max_steps, timeout)
@@ -332,17 +359,20 @@ def cmd_propose(a):
         try: sys.stdout.reconfigure(encoding="utf-8")
         except Exception: pass
         print(f"### SYSTEM\n{msgs[0]['content']}\n\n### USER\n{msgs[1]['content']}"); return
-    t0 = time.time(); text, uses = ask(msgs, a.max_tokens); kids = R.parse_proposals(text); conv = msgs + [{"role": "assistant", "content": text}]; nw = 0
+    t0 = time.time(); text, uses = ask(msgs, a.max_tokens); kids = [c for c in R.parse_proposals(text) if c.get("detect_src")]; nw = 0
+    raw_first = text
     while not kids and nw < MAX_RETRIES:
-        nw += 1; conv = conv + [{"role": "user", "content": NONE_FOUND.format(k=a.k)}]
-        text, u = ask(conv, a.max_tokens); uses += u; kids = R.parse_proposals(text); conv = conv + [{"role": "assistant", "content": text}]
+        # format repair in a FRESH, short context with thinking off: the analysis is done, only the output format failed
+        # (a long thinking reply hit the length limit, or code was written without fences). No conversation accumulation.
+        nw += 1; text, u = repair_format(raw_first, a.k, a.max_tokens); uses += u
+        kids = [c for c in R.parse_proposals(text) if c.get("detect_src")]
     diagnosis = (text.split("NAME:", 1)[0] if kids else text).strip()[:2000]
     base = {"run": a.run_id, "case_id": node["cid"], "parent_cid": node["cid"], "task": None, "node": a.node, "diagnosis": diagnosis}
     if os.path.dirname(a.out): os.makedirs(os.path.dirname(a.out), exist_ok=True)
     lines = []
     if not kids:
         lines.append({"cid": f"{a.run_id}_1", **base, "spec": None, "valid": False, "why": "no child in the reply", "self_check": {},
-                      "patch_path": None, "attempts": nw + 1, "usage": {"calls": uses}, "raw": text})
+                      "patch_path": None, "attempts": nw + 1, "usage": {"calls": uses}, "raw": text, "raw_first": raw_first})
     for j, kid in enumerate(kids[:a.k], 1):
         cid = f"{a.run_id}_{j}"; cu = list(uses) if j == 1 else []; raw = text; hist = []; cconv = conv; sp = None; src = None; sc = {}
         for att in range(MAX_RETRIES + 1):
