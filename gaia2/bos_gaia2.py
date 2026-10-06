@@ -272,8 +272,9 @@ def play(job):
                     traj.append(rec(step, "", out, block, info, resp=answer[-600:], replayed=0, no_exec=1, code_final="", **si))
                     hist.append((answer[-4000:] or "(empty reply)", "Output:\n```\n" + out + "\n```" + stamp(step)))
                 else:
-                    code = Hk.run_text(funcs, "post_parse", code, state, si)
+                    code0 = code; code = Hk.run_text(funcs, "post_parse", code, state, si)
                     if Hk.PRE_COMPLETE_MARKER in code: code = Hk.run_text(funcs, "pre_complete", code, state, si)
+                    if code != code0: si["code_pre"] = code0   # the model's cell before a hook rewrote / blocked it (full text)
                     exec_out, info, m = run_cell(code); block = render_messages(m); out = join_out(exec_out, block)
                     Hk.run_post_exec(funcs, code, out, state, si)
                     traj.append(rec(step, code, out, block, info, resp=answer[-600:], replayed=0, no_exec=0, code_final=code[:300], **si))
