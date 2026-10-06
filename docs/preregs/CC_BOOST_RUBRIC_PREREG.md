@@ -326,3 +326,10 @@ items, judge = the same local Qwen3.8-27B with thinking off and an on-disk cache
 Splits frozen now (gaia2/data, rule in splits.json): 800 capability scenarios (execution, search, adaptability, time, ambiguity;
 160 each; mini/demo excluded), per config disc 60 / val 30 / test 70; pilot = 10/config, disc_core = 30/config. Test is touched once.
 Privileged hindsight for the proposer = verifier per-tool count lines (agent-facing tool names); oracle args only as an ablation.
+
+A29 (2026-10-06, before the Gaia2 baseline). Gaia2 integration validated (exact oracle replay 50/50 + selftest --twice 50/50;
+pilot 50 tasks: 0.56 with Qwen3.8-27B thinking on; live-vs-simulate fidelity for note and block_once patches). Judge strictness:
+with thinking off the local Qwen judge rejects ~16% of correct-but-not-identical texts (space-perturbed oracle replays 42/50).
+Decision for all Gaia2 results from now on: judge thinking ON (G2_JUDGE_THINK=1, G2_JUDGE_MAX_TOKENS=4096), cached; agent
+thinking on, BOS_MAX_TOKENS 8192, G2_STEPS 40, G2_GEN_SECONDS 1.0. Baseline H0 = bos_gaia2 with no patch on tasks_disc_core
+(150) seeds 1, 2 (CC_G2_H0_disc). Results before commit 577f617 are not replay-compatible and are not used.
